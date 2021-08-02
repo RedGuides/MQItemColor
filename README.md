@@ -20,19 +20,24 @@ Nope
 
 ### Configuration File
 
-```ini
+
 Toggles for each type. 1 for on, 0 for off.
+
 [General]
+```ini
 - QuestOn=1
 - TradeSkillsOn=1
 - CollectibleOn=1
 - NoTradeOn=1
 - AttuneableOn=1
+```
 
 Hex codes for Item Colors based on type.
 Normal is the color shown without mouseover.
 Rollover is the color shown with mouseover.
+
 [ItemColors]
+```ini
 - QuestNormal=0xFFF01DFF
 - QuestRollover=0xFFFF35FF
 - TradeSkillsNormal=0xFFF0F000

@@ -6,9 +6,24 @@
 // and Shutdown for setup and cleanup.
 
 #include <mq/Plugin.h>
+#include <MQItemColor/MQItemColor.h>
+#include <fstream>
 
 PreSetup("MQItemColor");
 PLUGIN_VERSION(0.1);
+
+unsigned int DefaultNormalColor = 0xFFC0C0C0;
+unsigned int DefaultRolloverColor = 0xFFFFFFFF;
+itemcolor::ItemColor QuestColor("Quest", true, "0xFFF01DFF", "0xFFFF35FF");
+itemcolor::ItemColor TradeSkillsColor("TradeSkills", true, "0xFFF0F000", "0xFFF09253");
+itemcolor::ItemColor CollectibleColor("Collectible", true, "0xFFFF8C20", "0xFFFFB120");
+itemcolor::ItemColor NoTradeColor("NoTrade", true, "0xFFFF2020", "0xFFFF4120");
+itemcolor::ItemColor AttuneableColor("Attuneable", true, "0xFF6BBAFF", "0xFFFFADF4");
+
+void Load_INI();
+void SearchInventory(bool setDefault = false);
+void SetBGColors(ItemClient* pItem, bool setDefault = false);
+void SetBGTexture(CInvSlotWnd* pInvSlotWnd, bool setDefault = false);
 
 /**
  * @fn InitializePlugin
@@ -24,6 +39,10 @@ PLUGIN_API void InitializePlugin()
 	// AddCommand("/mycommand", MyCommand);
 	// AddXMLFile("MQUI_MyXMLFile.xml");
 	// AddMQ2Data("mytlo", MyTLOData);
+
+	sprintf_s(INIFileName, "%s\\MQ2ItemColor.ini", gPathConfig);
+	Load_INI();
+	AddXMLFile("EQUI_Animations2.xml");
 }
 
 /**
@@ -36,10 +55,13 @@ PLUGIN_API void ShutdownPlugin()
 {
 	DebugSpewAlways("MQItemColor::Shutting down");
 
+	SearchInventory(true);
+
 	// Examples:
 	// RemoveCommand("/mycommand");
 	// RemoveXMLFile("MQUI_MyXMLFile.xml");
 	// RemoveMQ2Data("mytlo");
+	RemoveXMLFile("EQUI_Animations2.xml");
 }
 
 /**
@@ -73,54 +95,6 @@ PLUGIN_API void OnReloadUI()
 	// DebugSpewAlways("MQItemColor::OnReloadUI()");
 }
 
-/**
- * @fn OnDrawHUD
- *
- * This is called each time the Heads Up Display (HUD) is drawn.  The HUD is
- * responsible for the net status and packet loss bar.
- *
- * Note that this is not called at all if the HUD is not shown (default F11 to
- * toggle).
- *
- * Because the net status is updated frequently, it is recommended to have a
- * timer or counter at the start of this call to limit the amount of times the
- * code in this section is executed.
- */
-PLUGIN_API void OnDrawHUD()
-{
-/*
-	static std::chrono::steady_clock::time_point DrawHUDTimer = std::chrono::steady_clock::now();
-	// Run only after timer is up
-	if (std::chrono::steady_clock::now() > DrawHUDTimer)
-	{
-		// Wait half a second before running again
-		DrawHUDTimer = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
-		DebugSpewAlways("MQItemColor::OnDrawHUD()");
-	}
-*/
-}
-
-/**
- * @fn SetGameState
- *
- * This is called when the GameState changes.  It is also called once after the
- * plugin is initialized.
- *
- * For a list of known GameState values, see the constants that begin with
- * GAMESTATE_.  The most commonly used of these is GAMESTATE_INGAME.
- *
- * When zoning, this is called once after @ref OnBeginZone @ref OnRemoveSpawn
- * and @ref OnRemoveGroundItem are all done and then called once again after
- * @ref OnEndZone and @ref OnAddSpawn are done but prior to @ref OnAddGroundItem
- * and @ref OnZoned
- *
- * @param GameState int - The value of GameState at the time of the call
- */
-PLUGIN_API void SetGameState(int GameState)
-{
-	// DebugSpewAlways("MQItemColor::SetGameState(%d)", GameState);
-}
-
 
 /**
  * @fn OnPulse
@@ -133,16 +107,29 @@ PLUGIN_API void SetGameState(int GameState)
  */
 PLUGIN_API void OnPulse()
 {
-/*
 	static std::chrono::steady_clock::time_point PulseTimer = std::chrono::steady_clock::now();
 	// Run only after timer is up
-	if (std::chrono::steady_clock::now() > PulseTimer)
+	if ((std::chrono::steady_clock::now() > PulseTimer) && (gGameState == GAMESTATE_INGAME))
 	{
-		// Wait 5 seconds before running again
-		PulseTimer = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-		DebugSpewAlways("MQItemColor::OnPulse()");
+		//clock_t t;
+		//t = clock();
+
+		SearchInventory();
+
+		QuestColor.WriteColorINI(INIFileName);
+		TradeSkillsColor.WriteColorINI(INIFileName);
+		CollectibleColor.WriteColorINI(INIFileName);
+		NoTradeColor.WriteColorINI(INIFileName);
+		AttuneableColor.WriteColorINI(INIFileName);
+
+		//t = clock() - t;
+
+		//WriteChatf("It took me %d clicks (%f seconds).\n", t, ((float)t) / CLOCKS_PER_SEC);
+
+		// Wait 1 seconds before running again
+		PulseTimer = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+		//DebugSpewAlways("MQ2ItemColor::OnPulse()");
 	}
-*/
 }
 
 /**
@@ -191,157 +178,6 @@ PLUGIN_API bool OnIncomingChat(const char* Line, DWORD Color)
 	return false;
 }
 
-/**
- * @fn OnAddSpawn
- *
- * This is called each time a spawn is added to a zone (ie, something spawns). It is
- * also called for each existing spawn when a plugin first initializes.
- *
- * When zoning, this is called for all spawns in the zone after @ref OnEndZone is
- * called and before @ref OnZoned is called.
- *
- * @param pNewSpawn PSPAWNINFO - The spawn that was added
- */
-PLUGIN_API void OnAddSpawn(PSPAWNINFO pNewSpawn)
-{
-	// DebugSpewAlways("MQItemColor::OnAddSpawn(%s)", pNewSpawn->Name);
-}
-
-/**
- * @fn OnRemoveSpawn
- *
- * This is called each time a spawn is removed from a zone (ie, something despawns
- * or is killed).  It is NOT called when a plugin shuts down.
- *
- * When zoning, this is called for all spawns in the zone after @ref OnBeginZone is
- * called.
- *
- * @param pSpawn PSPAWNINFO - The spawn that was removed
- */
-PLUGIN_API void OnRemoveSpawn(PSPAWNINFO pSpawn)
-{
-	// DebugSpewAlways("MQItemColor::OnRemoveSpawn(%s)", pSpawn->Name);
-}
-
-/**
- * @fn OnAddGroundItem
- *
- * This is called each time a ground item is added to a zone (ie, something spawns).
- * It is also called for each existing ground item when a plugin first initializes.
- *
- * When zoning, this is called for all ground items in the zone after @ref OnEndZone
- * is called and before @ref OnZoned is called.
- *
- * @param pNewGroundItem PGROUNDITEM - The ground item that was added
- */
-PLUGIN_API void OnAddGroundItem(PGROUNDITEM pNewGroundItem)
-{
-	// DebugSpewAlways("MQItemColor::OnAddGroundItem(%d)", pNewGroundItem->DropID);
-}
-
-/**
- * @fn OnRemoveGroundItem
- *
- * This is called each time a ground item is removed from a zone (ie, something
- * despawns or is picked up).  It is NOT called when a plugin shuts down.
- *
- * When zoning, this is called for all ground items in the zone after
- * @ref OnBeginZone is called.
- *
- * @param pGroundItem PGROUNDITEM - The ground item that was removed
- */
-PLUGIN_API void OnRemoveGroundItem(PGROUNDITEM pGroundItem)
-{
-	// DebugSpewAlways("MQItemColor::OnRemoveGroundItem(%d)", pGroundItem->DropID);
-}
-
-/**
- * @fn OnBeginZone
- *
- * This is called just after entering a zone line and as the loading screen appears.
- */
-PLUGIN_API void OnBeginZone()
-{
-	// DebugSpewAlways("MQItemColor::OnBeginZone()");
-}
-
-/**
- * @fn OnEndZone
- *
- * This is called just after the loading screen, but prior to the zone being fully
- * loaded.
- *
- * This should occur before @ref OnAddSpawn and @ref OnAddGroundItem are called. It
- * always occurs before @ref OnZoned is called.
- */
-PLUGIN_API void OnEndZone()
-{
-	// DebugSpewAlways("MQItemColor::OnEndZone()");
-}
-
-/**
- * @fn OnZoned
- *
- * This is called after entering a new zone and the zone is considered "loaded."
- *
- * It occurs after @ref OnEndZone @ref OnAddSpawn and @ref OnAddGroundItem have
- * been called.
- */
-PLUGIN_API void OnZoned()
-{
-	// DebugSpewAlways("MQItemColor::OnZoned()");
-}
-
-/**
- * @fn OnUpdateImGui
- *
- * This is called each time that the ImGui Overlay is rendered. Use this to render
- * and update plugin specific widgets.
- *
- * Because this happens extremely frequently, it is recommended to move any actual
- * work to a separate call and use this only for updating the display.
- */
-PLUGIN_API void OnUpdateImGui()
-{
-/*
-	if (GetGameState() == GAMESTATE_INGAME)
-	{
-		static bool ShowMQItemColorWindow = true;
-		ImGui::Begin("MQItemColor", &ShowMQItemColorWindow, ImGuiWindowFlags_MenuBar);
-		if (ImGui::BeginMenuBar())
-		{
-			ImGui::Text("MQItemColor is loaded!");
-			ImGui::EndMenuBar();
-		}
-		ImGui::End();
-	}
-*/
-}
-
-/**
- * @fn OnMacroStart
- *
- * This is called each time a macro starts (ex: /mac somemacro.mac), prior to
- * launching the macro.
- *
- * @param Name const char* - The name of the macro that was launched
- */
-PLUGIN_API void OnMacroStart(const char* Name)
-{
-	// DebugSpewAlways("MQItemColor::OnMacroStart(%s)", Name);
-}
-
-/**
- * @fn OnMacroStop
- *
- * This is called each time a macro stops (ex: /endmac), after the macro has ended.
- *
- * @param Name const char* - The name of the macro that was stopped.
- */
-PLUGIN_API void OnMacroStop(const char* Name)
-{
-	// DebugSpewAlways("MQItemColor::OnMacroStop(%s)", Name);
-}
 
 /**
  * @fn OnLoadPlugin
@@ -375,4 +211,139 @@ PLUGIN_API void OnLoadPlugin(const char* Name)
 PLUGIN_API void OnUnloadPlugin(const char* Name)
 {
 	// DebugSpewAlways("MQItemColor::OnUnloadPlugin(%s)", Name);
+}
+
+void Load_INI()
+{
+	QuestColor.LoadFromIni(INIFileName);
+	TradeSkillsColor.LoadFromIni(INIFileName);
+	CollectibleColor.LoadFromIni(INIFileName);
+	NoTradeColor.LoadFromIni(INIFileName);
+	AttuneableColor.LoadFromIni(INIFileName);
+}
+
+void SearchInventory(bool setDefault)
+{
+	// loop through inv slots & worn slots
+	for (unsigned short usSlot = InvSlot_FirstBagSlot; usSlot < InvSlot_NumInvSlots; usSlot++)
+	{
+		if (ItemClient* pItem = GetPcProfile()->GetInventorySlot(usSlot))
+		{
+			// if there is a non-empty bag in this slot
+			if (pItem->IsContainer() && !pItem->IsEmpty())
+			{
+				for (const ItemPtr& pBagSlot : pItem->GetHeldItems())
+				{
+					if (pBagSlot)
+					{
+						// Set color of ItemClient* of bag slot inside bag
+						if (ItemClient* bagSlotIC = pBagSlot.get())
+						{
+							SetBGColors(bagSlotIC, setDefault);
+						}
+					}
+					else
+					{
+						// Empty Bag Slot, Nothing to Do
+					}
+				}
+			}
+			else if (!pItem->IsContainer())
+			{
+				SetBGColors(pItem, setDefault);
+			}
+		}
+	}
+}
+
+void SetBGColors(ItemClient* pItem, bool setDefault)
+{
+	// Make sure ItemClient pointer is valid
+	if (pItem != nullptr)
+	{
+		// Grab Inv Slot Pointer and Item Definition Pointer
+		CInvSlot* pInvSlot = GetInvSlot(pItem->GetItemLocation());
+		ItemDefinition* pItemDef = pItem->GetItemDefinition();
+
+		// Make sure both are valid
+		if ((pInvSlot != nullptr) && (pItemDef != nullptr))
+		{
+			// Grab Inv Slot Window Pointer and make sure its valid
+			if (CInvSlotWnd* pInvSlotWnd = pInvSlot->pInvSlotWnd)
+			{
+
+				// Based on Item Definition Flags in priority order, color background
+				if (setDefault)
+				{
+					SetBGTexture(pInvSlotWnd, setDefault);
+					pInvSlotWnd->BGTintNormal = DefaultNormalColor;
+					pInvSlotWnd->BGTintRollover = DefaultRolloverColor;
+				}
+				else if (pItemDef->QuestItem && QuestColor.isOn())
+				{
+					SetBGTexture(pInvSlotWnd);
+					pInvSlotWnd->BGTintNormal = QuestColor.GetNormalColor();
+					pInvSlotWnd->BGTintRollover = QuestColor.GetRolloverColor();
+				}
+				else if (pItemDef->TradeSkills && TradeSkillsColor.isOn())
+				{
+					SetBGTexture(pInvSlotWnd);
+					pInvSlotWnd->BGTintNormal = TradeSkillsColor.GetNormalColor();
+					pInvSlotWnd->BGTintRollover = TradeSkillsColor.GetRolloverColor();
+				}
+				else if (pItemDef->Collectible && CollectibleColor.isOn())
+				{
+					SetBGTexture(pInvSlotWnd);
+					pInvSlotWnd->BGTintNormal = CollectibleColor.GetNormalColor();
+					pInvSlotWnd->BGTintRollover = CollectibleColor.GetRolloverColor();
+				}
+				else if (!pItemDef->IsDroppable && NoTradeColor.isOn())
+				{
+					SetBGTexture(pInvSlotWnd);
+					pInvSlotWnd->BGTintNormal = NoTradeColor.GetNormalColor();
+					pInvSlotWnd->BGTintRollover = NoTradeColor.GetRolloverColor();
+				}
+				else if (pItemDef->Attuneable && AttuneableColor.isOn())
+				{
+					SetBGTexture(pInvSlotWnd);
+					pInvSlotWnd->BGTintNormal = AttuneableColor.GetNormalColor();
+					pInvSlotWnd->BGTintRollover = AttuneableColor.GetRolloverColor();
+				}
+				else
+				{
+					SetBGTexture(pInvSlotWnd, true);
+					pInvSlotWnd->BGTintNormal = DefaultNormalColor;
+					pInvSlotWnd->BGTintRollover = DefaultRolloverColor;
+				}
+			}
+		}
+		else
+		{
+			// Inventory Slot Not Visible? Nothing to Do
+		}
+	}
+}
+
+void SetBGTexture(CInvSlotWnd* pInvSlotWnd, bool setDefault)
+{
+	if (pInvSlotWnd->pBackground != nullptr)
+	{
+		CTextureAnimation* newTex = nullptr;
+		if (setDefault)
+		{
+			newTex = pSidlMgr->FindAnimation("A_RecessedBox");
+		}
+		else
+		{
+			newTex = pSidlMgr->FindAnimation("A_RecessedBoxMQ2");
+		}
+
+		if (newTex != nullptr)
+		{
+			pInvSlotWnd->pBackground = newTex;
+
+		}
+
+		WriteChatf("%s", pInvSlotWnd->pBackground->GetName().c_str());
+	}
 }
