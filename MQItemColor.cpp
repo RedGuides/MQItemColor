@@ -1,14 +1,170 @@
-// MQItemColor.cpp : Defines the entry point for the DLL application.
-//
-
-// PLUGIN_API is only to be used for callbacks.  All existing callbacks at this time
-// are shown below. Remove the ones your plugin does not use.  Always use Initialize
-// and Shutdown for setup and cleanup.
+/**
+ * MQItemColor.cpp
+ *
+ * This plugin will set the background color of items according to various item attributes.
+ * Colors are done in priority order, for example a no trade tradeskill item gets colored in tradeskill colors.
+ *
+ * Colors for specific attributes can be set in the ini. A reload is required to take effect.
+ * Colors are based on ARGB hex format. Hex "0x" Alpha "00-FF" Red "00-FF" Green "00-FF" Blue "00-FF"
+ * Example: 0xFFC0C0C0
+ *
+ * The plugin will try to load an UI XML for a item background texture to give them more visibility.
+ * A /reload or /loadskin default may be required for the texture background change to show.
+ *
+ * TODO: Add colors for other item attributes, anything important to add?
+ *
+ * TODO: Implementation feels not very efficient, from looping through all slots to how I set the color
+ * and backgrounds. Could be improvements.
+ *
+ */
 
 #include <mq/Plugin.h>
+#include <fstream>
 
 PreSetup("MQItemColor");
 PLUGIN_VERSION(0.1);
+
+class ItemColor
+{
+protected:
+	// Name of ItemColor
+	std::string Name;
+
+	// On Flag
+	bool On;
+	bool OnDefault;
+
+	// Normal Color
+	unsigned int NormalColor;
+	unsigned int NormalColorDefault;
+
+	// Rollover Color
+	unsigned int RolloverColor;
+	unsigned int RolloverColorDefault;
+
+	// INI Section/Profile Names
+	std::string GeneralSection;
+	std::string ItemColorSection;
+	std::string OnProfile;
+	std::string NormalProfile;
+	std::string RolloverProfile;
+
+public:
+	ItemColor(std::string Name, bool On, unsigned int NormalColor, unsigned int RolloverColor) :
+		Name(Name),
+		On(On), OnDefault(On),
+		NormalColor(NormalColor), NormalColorDefault(NormalColor),
+		RolloverColor(RolloverColor), RolloverColorDefault(RolloverColor)
+	{
+		GeneralSection = "General";
+		ItemColorSection = "ItemColors";
+		OnProfile = Name + std::string("On");
+		NormalProfile = Name + std::string("Normal");
+		RolloverProfile = Name + std::string("Rollover");
+	}
+
+	bool isOn() { return On; }
+
+	// Gets for unsigned int version of Normal / Rollover colors
+	unsigned int GetNormalColor() { return NormalColor; }
+	unsigned int GetRolloverColor() { return RolloverColor; }
+
+	// Sets for unsigned int version of Normal / Rollover colors
+	void SetNormalColor(unsigned int newColor) { NormalColor = newColor; }
+	void SetRolloverColor(unsigned int newColor) { RolloverColor = newColor; }
+
+	void WriteColorINI(std::string iniFileName)
+	{
+		std::stringstream stream;
+
+		// Grab On flag from INI, write out default if not there
+		WritePrivateProfileBool(GeneralSection, OnProfile, On, iniFileName);
+
+		// Write out Normal Color converted to hex string
+		stream.str(std::string());
+		stream.clear();
+		stream << "0x" << std::hex << std::uppercase << NormalColor;
+		WritePrivateProfileString(ItemColorSection, NormalProfile, stream.str(), iniFileName);
+
+		// Write out Rollover Color converted to hex string
+		stream.str(std::string());
+		stream.clear();
+		stream << "0x" << std::hex << std::uppercase << RolloverColor;
+		WritePrivateProfileString(ItemColorSection, RolloverProfile, stream.str(), iniFileName);
+	}
+
+	void LoadFromIni(std::string iniFileName)
+	{
+		std::stringstream stream;
+
+		// Grab On flag from INI
+		On = GetPrivateProfileBool(GeneralSection, OnProfile, OnDefault, iniFileName);
+
+		// Grab Normal Color from INI
+		stream.str(std::string());
+		stream.clear();
+		stream << "0x" << std::hex << std::uppercase << NormalColorDefault;
+		std::string NormalColorStr = GetPrivateProfileString(ItemColorSection, NormalProfile, stream.str(), iniFileName);
+		try
+		{
+			NormalColor = std::stoul(NormalColorStr, nullptr, 16);
+		}
+		catch (const std::exception& e)
+		{
+			UNREFERENCED_PARAMETER(e);
+			WriteChatf("Invalid Normal Color in INI for %s", Name.c_str());
+			NormalColor = NormalColorDefault;
+		}
+
+		// Grab Rollover Color from INI
+		stream.str(std::string());
+		stream.clear();
+		stream << "0x" << std::hex << std::uppercase << RolloverColorDefault;
+		std::string RolloverColorStr = GetPrivateProfileString(ItemColorSection, RolloverProfile, stream.str(), iniFileName);
+		try
+		{
+			RolloverColor = std::stoul(RolloverColorStr, nullptr, 16);
+		}
+		catch (const std::exception& e)
+		{
+			UNREFERENCED_PARAMETER(e);
+			WriteChatf("Invalid Rollover Color in INI for %s", Name.c_str());
+			RolloverColor = NormalColorDefault;
+		}
+
+		// Write out Values in case they weren't there
+		// On Flag
+		WritePrivateProfileBool(GeneralSection, OnProfile, On, iniFileName);
+
+		// Normal Color
+		stream.str(std::string());
+		stream.clear();
+		stream << "0x" << std::hex << std::uppercase << NormalColor;
+		WritePrivateProfileString(ItemColorSection, NormalProfile, stream.str(), iniFileName);
+
+		// Rollover Color
+		stream.str(std::string());
+		stream.clear();
+		stream << "0x" << std::hex << std::uppercase << RolloverColor;
+		WritePrivateProfileString(ItemColorSection, RolloverProfile, stream.str(), iniFileName);
+	}
+};
+
+// Default Normal and Rollover Background Colors
+unsigned int DefaultNormalColor = 0xFFC0C0C0;
+unsigned int DefaultRolloverColor = 0xFFFFFFFF;
+
+// ItemColor definitions, stores info for each item attribute we care to color
+ItemColor QuestColor("Quest", true, 0xFFF01DFF, 0xFFF9AFFF);
+ItemColor TradeSkillsColor("TradeSkills", true, 0xFFF0F000, 0xFFF09253);
+ItemColor CollectibleColor("Collectible", true, 0xFFFF8C20, 0xFFFFCA4D);
+ItemColor NoTradeColor("NoTrade", true, 0xFFFF2020, 0xFFFF8080);
+ItemColor AttuneableColor("Attuneable", true, 0xFF6BBAFF, 0xFFFFADF4);
+
+void LoadColorsFromINI();
+void SearchInventory(bool setDefault = false);
+void SetBGColors(CInvSlotWnd* pInvSlotWnd, ItemDefinition* pItemDef, bool setDefault = false);
+void SetBGTexture(CInvSlotWnd* pInvSlotWnd, bool setDefault = false);
 
 /**
  * @fn InitializePlugin
@@ -18,12 +174,14 @@ PLUGIN_VERSION(0.1);
  */
 PLUGIN_API void InitializePlugin()
 {
-	DebugSpewAlways("MQItemColor::Initializing version %f", MQ2Version);
+	// Set INI Path
+	sprintf_s(INIFileName, "%s\\MQ2ItemColor.ini", gPathConfig);
 
-	// Examples:
-	// AddCommand("/mycommand", MyCommand);
-	// AddXMLFile("MQUI_MyXMLFile.xml");
-	// AddMQ2Data("mytlo", MyTLOData);
+	// Load settings from INI
+	LoadColorsFromINI();
+
+	// Add XML for background texture
+	AddXMLFile("MQUI_ItemColorAnimation.xml");
 }
 
 /**
@@ -34,345 +192,226 @@ PLUGIN_API void InitializePlugin()
  */
 PLUGIN_API void ShutdownPlugin()
 {
-	DebugSpewAlways("MQItemColor::Shutting down");
+	// Set inventory back to default backgrounds
+	SearchInventory(true);
 
-	// Examples:
-	// RemoveCommand("/mycommand");
-	// RemoveXMLFile("MQUI_MyXMLFile.xml");
-	// RemoveMQ2Data("mytlo");
+	// Write out any changes Settings to INI
+	// TODO: Can probably be improved(add color items into a list and
+	// just make this loop through and call function on each ? )
+	QuestColor.WriteColorINI(INIFileName);
+	TradeSkillsColor.WriteColorINI(INIFileName);
+	CollectibleColor.WriteColorINI(INIFileName);
+	NoTradeColor.WriteColorINI(INIFileName);
+	AttuneableColor.WriteColorINI(INIFileName);
+
+	// Remove XML for background texture
+	RemoveXMLFile("MQUI_ItemColorAnimation.xml");
 }
-
-/**
- * @fn OnCleanUI
- *
- * This is called once just before the shutdown of the UI system and each time the
- * game requests that the UI be cleaned.  Most commonly this happens when a
- * /loadskin command is issued, but it also occurs when reaching the character
- * select screen and when first entering the game.
- *
- * One purpose of this function is to allow you to destroy any custom windows that
- * you have created and cleanup any UI items that need to be removed.
- */
-PLUGIN_API void OnCleanUI()
-{
-	// DebugSpewAlways("MQItemColor::OnCleanUI()");
-}
-
-/**
- * @fn OnReloadUI
- *
- * This is called once just after the UI system is loaded. Most commonly this
- * happens when a /loadskin command is issued, but it also occurs when first
- * entering the game.
- *
- * One purpose of this function is to allow you to recreate any custom windows
- * that you have setup.
- */
-PLUGIN_API void OnReloadUI()
-{
-	// DebugSpewAlways("MQItemColor::OnReloadUI()");
-}
-
-/**
- * @fn OnDrawHUD
- *
- * This is called each time the Heads Up Display (HUD) is drawn.  The HUD is
- * responsible for the net status and packet loss bar.
- *
- * Note that this is not called at all if the HUD is not shown (default F11 to
- * toggle).
- *
- * Because the net status is updated frequently, it is recommended to have a
- * timer or counter at the start of this call to limit the amount of times the
- * code in this section is executed.
- */
-PLUGIN_API void OnDrawHUD()
-{
-/*
-	static std::chrono::steady_clock::time_point DrawHUDTimer = std::chrono::steady_clock::now();
-	// Run only after timer is up
-	if (std::chrono::steady_clock::now() > DrawHUDTimer)
-	{
-		// Wait half a second before running again
-		DrawHUDTimer = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
-		DebugSpewAlways("MQItemColor::OnDrawHUD()");
-	}
-*/
-}
-
-/**
- * @fn SetGameState
- *
- * This is called when the GameState changes.  It is also called once after the
- * plugin is initialized.
- *
- * For a list of known GameState values, see the constants that begin with
- * GAMESTATE_.  The most commonly used of these is GAMESTATE_INGAME.
- *
- * When zoning, this is called once after @ref OnBeginZone @ref OnRemoveSpawn
- * and @ref OnRemoveGroundItem are all done and then called once again after
- * @ref OnEndZone and @ref OnAddSpawn are done but prior to @ref OnAddGroundItem
- * and @ref OnZoned
- *
- * @param GameState int - The value of GameState at the time of the call
- */
-PLUGIN_API void SetGameState(int GameState)
-{
-	// DebugSpewAlways("MQItemColor::SetGameState(%d)", GameState);
-}
-
 
 /**
  * @fn OnPulse
  *
  * This is called each time MQ2 goes through its heartbeat (pulse) function.
  *
- * Because this happens very frequently, it is recommended to have a timer or
- * counter at the start of this call to limit the amount of times the code in
- * this section is executed.
+ * Every time our pulse counter is hit, we take a look at
+ * what is in our inventory and color it accordingly.
  */
 PLUGIN_API void OnPulse()
 {
-/*
 	static std::chrono::steady_clock::time_point PulseTimer = std::chrono::steady_clock::now();
+
 	// Run only after timer is up
-	if (std::chrono::steady_clock::now() > PulseTimer)
+	if ((std::chrono::steady_clock::now() > PulseTimer) && (gGameState == GAMESTATE_INGAME))
 	{
-		// Wait 5 seconds before running again
-		PulseTimer = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-		DebugSpewAlways("MQItemColor::OnPulse()");
+		// Go through inventory and color appropriately
+		SearchInventory();
+
+		// Wait 100ms before running again
+		// TODO: Is this too quick? too slow?
+		PulseTimer = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
 	}
-*/
 }
 
 /**
- * @fn OnWriteChatColor
+ * @fn LoadColorsFromINI
  *
- * This is called each time WriteChatColor is called (whether by MQ2Main or by any
- * plugin).  This can be considered the "when outputting text from MQ" callback.
- *
- * This ignores filters on display, so if they are needed either implement them in
- * this section or see @ref OnIncomingChat where filters are already handled.
- *
- * If CEverQuest::dsp_chat is not called, and events are required, they'll need to
- * be implemented here as well.  Otherwise, see @ref OnIncomingChat where that is
- * already handled.
- *
- * For a list of Color values, see the constants for USERCOLOR_.  The default is
- * USERCOLOR_DEFAULT.
- *
- * @param Line const char* - The line that was passed to WriteChatColor
- * @param Color int - The type of chat text this is to be sent as
- * @param Filter int - (default 0)
+ * Load information from the INI for each of our colors
+ * 
+ * TODO: Can probably be improved (add color items into a list and
+ * just make this loop through and call function on each?)
  */
-PLUGIN_API void OnWriteChatColor(const char* Line, int Color, int Filter)
+void LoadColorsFromINI()
 {
-	// DebugSpewAlways("MQItemColor::OnWriteChatColor(%s, %d, %d)", Line, Color, Filter);
+	QuestColor.LoadFromIni(INIFileName);
+	TradeSkillsColor.LoadFromIni(INIFileName);
+	CollectibleColor.LoadFromIni(INIFileName);
+	NoTradeColor.LoadFromIni(INIFileName);
+	AttuneableColor.LoadFromIni(INIFileName);
 }
 
 /**
- * @fn OnIncomingChat
+ * @fn SearchInventory
  *
- * This is called each time a line of chat is shown.  It occurs after MQ filters
- * and chat events have been handled.  If you need to know when MQ2 has sent chat,
- * consider using @ref OnWriteChatColor instead.
+ * Searches through inventory slots to color only those slots we care about
+ * Only colors those slots that are part of the player main inventory or bags,
+ * avoids coloring worn items or any item buttons that may be created.
  *
- * For a list of Color values, see the constants for USERCOLOR_. The default is
- * USERCOLOR_DEFAULT.
- *
- * @param Line const char* - The line of text that was shown
- * @param Color int - The type of chat text this was sent as
- *
- * @return bool - Whether to filter this chat from display
+ * @param setDefault bool - True to set the original colors, false (default) to set based on item attributes
  */
-PLUGIN_API bool OnIncomingChat(const char* Line, DWORD Color)
+void SearchInventory(bool setDefault)
 {
-	// DebugSpewAlways("MQItemColor::OnIncomingChat(%s, %d)", Line, Color);
-	return false;
-}
-
-/**
- * @fn OnAddSpawn
- *
- * This is called each time a spawn is added to a zone (ie, something spawns). It is
- * also called for each existing spawn when a plugin first initializes.
- *
- * When zoning, this is called for all spawns in the zone after @ref OnEndZone is
- * called and before @ref OnZoned is called.
- *
- * @param pNewSpawn PSPAWNINFO - The spawn that was added
- */
-PLUGIN_API void OnAddSpawn(PSPAWNINFO pNewSpawn)
-{
-	// DebugSpewAlways("MQItemColor::OnAddSpawn(%s)", pNewSpawn->Name);
-}
-
-/**
- * @fn OnRemoveSpawn
- *
- * This is called each time a spawn is removed from a zone (ie, something despawns
- * or is killed).  It is NOT called when a plugin shuts down.
- *
- * When zoning, this is called for all spawns in the zone after @ref OnBeginZone is
- * called.
- *
- * @param pSpawn PSPAWNINFO - The spawn that was removed
- */
-PLUGIN_API void OnRemoveSpawn(PSPAWNINFO pSpawn)
-{
-	// DebugSpewAlways("MQItemColor::OnRemoveSpawn(%s)", pSpawn->Name);
-}
-
-/**
- * @fn OnAddGroundItem
- *
- * This is called each time a ground item is added to a zone (ie, something spawns).
- * It is also called for each existing ground item when a plugin first initializes.
- *
- * When zoning, this is called for all ground items in the zone after @ref OnEndZone
- * is called and before @ref OnZoned is called.
- *
- * @param pNewGroundItem PGROUNDITEM - The ground item that was added
- */
-PLUGIN_API void OnAddGroundItem(PGROUNDITEM pNewGroundItem)
-{
-	// DebugSpewAlways("MQItemColor::OnAddGroundItem(%d)", pNewGroundItem->DropID);
-}
-
-/**
- * @fn OnRemoveGroundItem
- *
- * This is called each time a ground item is removed from a zone (ie, something
- * despawns or is picked up).  It is NOT called when a plugin shuts down.
- *
- * When zoning, this is called for all ground items in the zone after
- * @ref OnBeginZone is called.
- *
- * @param pGroundItem PGROUNDITEM - The ground item that was removed
- */
-PLUGIN_API void OnRemoveGroundItem(PGROUNDITEM pGroundItem)
-{
-	// DebugSpewAlways("MQItemColor::OnRemoveGroundItem(%d)", pGroundItem->DropID);
-}
-
-/**
- * @fn OnBeginZone
- *
- * This is called just after entering a zone line and as the loading screen appears.
- */
-PLUGIN_API void OnBeginZone()
-{
-	// DebugSpewAlways("MQItemColor::OnBeginZone()");
-}
-
-/**
- * @fn OnEndZone
- *
- * This is called just after the loading screen, but prior to the zone being fully
- * loaded.
- *
- * This should occur before @ref OnAddSpawn and @ref OnAddGroundItem are called. It
- * always occurs before @ref OnZoned is called.
- */
-PLUGIN_API void OnEndZone()
-{
-	// DebugSpewAlways("MQItemColor::OnEndZone()");
-}
-
-/**
- * @fn OnZoned
- *
- * This is called after entering a new zone and the zone is considered "loaded."
- *
- * It occurs after @ref OnEndZone @ref OnAddSpawn and @ref OnAddGroundItem have
- * been called.
- */
-PLUGIN_API void OnZoned()
-{
-	// DebugSpewAlways("MQItemColor::OnZoned()");
-}
-
-/**
- * @fn OnUpdateImGui
- *
- * This is called each time that the ImGui Overlay is rendered. Use this to render
- * and update plugin specific widgets.
- *
- * Because this happens extremely frequently, it is recommended to move any actual
- * work to a separate call and use this only for updating the display.
- */
-PLUGIN_API void OnUpdateImGui()
-{
-/*
-	if (GetGameState() == GAMESTATE_INGAME)
+	// Loop through each inventory slot (start at first bag slot as we don't care about worn items)
+	for (int index = InvSlot_FirstBagSlot; index < pInvSlotMgr->TotalSlots; index++)
 	{
-		static bool ShowMQItemColorWindow = true;
-		ImGui::Begin("MQItemColor", &ShowMQItemColorWindow, ImGuiWindowFlags_MenuBar);
-		if (ImGui::BeginMenuBar())
+		// Grab slot at index
+		CInvSlot* pInvSlot = pInvSlotMgr->SlotArray[index];
+		if (!pInvSlot || !pInvSlot->bEnabled)
 		{
-			ImGui::Text("MQItemColor is loaded!");
-			ImGui::EndMenuBar();
+			continue;
 		}
-		ImGui::End();
+
+		// Grab global index and pointer to item if one exists at slot
+		ItemGlobalIndex globalIndex = pInvSlot->pInvSlotWnd ? pInvSlot->pInvSlotWnd->ItemLocation : ItemGlobalIndex();
+		ItemPtr pItem = pLocalPC->GetItemByGlobalIndex(globalIndex);
+
+		// If our global index is valid and is located in container possessions (inventory)
+		if (globalIndex.IsValidLocation() && (globalIndex.GetLocation() == eItemContainerPossessions))
+		{
+			// Grab the pointer for its InvSlotWnd
+			CInvSlotWnd* pInvSlotWnd = pInvSlot->pInvSlotWnd;
+			if (pInvSlotWnd && pInvSlotWnd->IsVisible())
+			{
+				if (!pItem)
+				{
+					// No Item but Valid InvSlotWnd, color default (empty slot)
+					SetBGColors(pInvSlotWnd, nullptr, true);
+					// Move to next slot
+					continue;
+				}
+
+				// Grab ItemDefinition for item at slot
+				ItemDefinition* pItemDef = pItem->GetItemDefinition();
+				if (!pItemDef || pInvSlotWnd->bHotButton)
+				{
+					// Not a valid ItemDefinition or we are dealing with a hotbutton slot
+					// Move to next slot
+					continue;
+				}
+
+				// Set background color and texture for InvSlotWnd based on ItemDefinition
+				SetBGColors(pInvSlotWnd, pItemDef, setDefault);
+			}
+		}
 	}
-*/
 }
 
 /**
- * @fn OnMacroStart
+ * @fn SetBGColors
  *
- * This is called each time a macro starts (ex: /mac somemacro.mac), prior to
- * launching the macro.
+ * This function will change the given CInvSlotWnd pointer's CTextureAnimation
+ * to/from the default or a more visible background for inventory slots.
+ * Will also change the tint of the background normal and rollover colors
  *
- * @param Name const char* - The name of the macro that was launched
+ * @param pInvSlotWnd CInvSlotWnd* - Pointer to the CInvSlotWnd we want to change the background color of
+ * @param pItemDef ItemDefinition* - Pointer to the ItemDefinition of the item we are dealing with
+ * @param setDefault bool - True to set the original colors, false (default) to set based on item attributes
  */
-PLUGIN_API void OnMacroStart(const char* Name)
+void SetBGColors(CInvSlotWnd* pInvSlotWnd, ItemDefinition* pItemDef, bool setDefault)
 {
-	// DebugSpewAlways("MQItemColor::OnMacroStart(%s)", Name);
+	// Valid SlotWnd and ItemDef means we have an item in the slot to color
+	if ((pInvSlotWnd != nullptr) && (pItemDef != nullptr))
+	{
+		// Based on Item Definition Flags in priority order, color background
+		// Default (Return to "Normal")
+		if (setDefault)
+		{
+			SetBGTexture(pInvSlotWnd, setDefault);
+			pInvSlotWnd->BGTintNormal = DefaultNormalColor;
+			pInvSlotWnd->BGTintRollover = DefaultRolloverColor;
+		}
+		// Quest
+		else if (pItemDef->QuestItem && QuestColor.isOn())
+		{
+			SetBGTexture(pInvSlotWnd);
+			pInvSlotWnd->BGTintNormal = QuestColor.GetNormalColor();
+			pInvSlotWnd->BGTintRollover = QuestColor.GetRolloverColor();
+		}
+		// TradeSkill
+		else if (pItemDef->TradeSkills && TradeSkillsColor.isOn())
+		{
+			SetBGTexture(pInvSlotWnd);
+			pInvSlotWnd->BGTintNormal = TradeSkillsColor.GetNormalColor();
+			pInvSlotWnd->BGTintRollover = TradeSkillsColor.GetRolloverColor();
+		}
+		// Collectible
+		else if (pItemDef->Collectible && CollectibleColor.isOn())
+		{
+			SetBGTexture(pInvSlotWnd);
+			pInvSlotWnd->BGTintNormal = CollectibleColor.GetNormalColor();
+			pInvSlotWnd->BGTintRollover = CollectibleColor.GetRolloverColor();
+		}
+		// No Trade
+		else if (!pItemDef->IsDroppable && NoTradeColor.isOn())
+		{
+			SetBGTexture(pInvSlotWnd);
+			pInvSlotWnd->BGTintNormal = NoTradeColor.GetNormalColor();
+			pInvSlotWnd->BGTintRollover = NoTradeColor.GetRolloverColor();
+		}
+		// Attuneable
+		else if (pItemDef->Attuneable && AttuneableColor.isOn())
+		{
+			SetBGTexture(pInvSlotWnd);
+			pInvSlotWnd->BGTintNormal = AttuneableColor.GetNormalColor();
+			pInvSlotWnd->BGTintRollover = AttuneableColor.GetRolloverColor();
+		}
+		// Undefined (Return to "Normal")
+		else
+		{
+			SetBGTexture(pInvSlotWnd, true);
+			pInvSlotWnd->BGTintNormal = DefaultNormalColor;
+			pInvSlotWnd->BGTintRollover = DefaultRolloverColor;
+		}
+	}
+	// Only pInvSlotWnd valid, empty slot, return to normal
+	else if (pInvSlotWnd != nullptr)
+	{
+		SetBGTexture(pInvSlotWnd, true);
+		pInvSlotWnd->BGTintNormal = DefaultNormalColor;
+		pInvSlotWnd->BGTintRollover = DefaultRolloverColor;
+	}
 }
 
-/**
- * @fn OnMacroStop
- *
- * This is called each time a macro stops (ex: /endmac), after the macro has ended.
- *
- * @param Name const char* - The name of the macro that was stopped.
- */
-PLUGIN_API void OnMacroStop(const char* Name)
-{
-	// DebugSpewAlways("MQItemColor::OnMacroStop(%s)", Name);
-}
 
 /**
- * @fn OnLoadPlugin
+ * @fn SetBGTexture
  *
- * This is called each time a plugin is loaded (ex: /plugin someplugin), after the
- * plugin has been loaded and any associated -AutoExec.cfg file has been launched.
- * This means it will be executed after the plugin's @ref InitializePlugin callback.
+ * This function will change the given CInvSlotWnd pointer's CTextureAnimation
+ * to/from the default or a more visible background for inventory slots.
  *
- * This is also called when THIS plugin is loaded, but initialization tasks should
- * still be done in @ref InitializePlugin.
- *
- * @param Name const char* - The name of the plugin that was loaded
+ * @param pInvSlotWnd CInvSlotWnd* - Pointer to the CInvSlotWnd we want to change the texture of
+ * @param setDefault bool - True to set the original texture, false (default) to set more visible background texture
  */
-PLUGIN_API void OnLoadPlugin(const char* Name)
+void SetBGTexture(CInvSlotWnd* pInvSlotWnd, bool setDefault)
 {
-	// DebugSpewAlways("MQItemColor::OnLoadPlugin(%s)", Name);
-}
+	if ((pInvSlotWnd != nullptr) && (pInvSlotWnd->pBackground != nullptr))
+	{
+		CTextureAnimation* newTex = nullptr;
 
-/**
- * @fn OnUnloadPlugin
- *
- * This is called each time a plugin is unloaded (ex: /plugin someplugin unload),
- * just prior to the plugin unloading.  This means it will be executed prior to that
- * plugin's @ref ShutdownPlugin callback.
- *
- * This is also called when THIS plugin is unloaded, but shutdown tasks should still
- * be done in @ref ShutdownPlugin.
- *
- * @param Name const char* - The name of the plugin that is to be unloaded
- */
-PLUGIN_API void OnUnloadPlugin(const char* Name)
-{
-	// DebugSpewAlways("MQItemColor::OnUnloadPlugin(%s)", Name);
+		// Return texture to normal
+		if (setDefault)
+		{
+			newTex = pSidlMgr->FindAnimation("A_RecessedBox");
+		}
+		// Set texture to more visible background
+		else
+		{
+			newTex = pSidlMgr->FindAnimation("A_ItemColorRecessedBox");
+		}
+
+		if (newTex != nullptr)
+		{
+			pInvSlotWnd->pBackground = newTex;
+
+		}
+	}
 }
