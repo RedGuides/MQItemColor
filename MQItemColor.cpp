@@ -155,10 +155,10 @@ unsigned int DefaultNormalColor = 0xFFC0C0C0;
 unsigned int DefaultRolloverColor = 0xFFFFFFFF;
 
 // ItemColor definitions, stores info for each item attribute we care to color
-ItemColor QuestColor("Quest", true, 0xFFF01DFF, 0xFFFF35FF);
+ItemColor QuestColor("Quest", true, 0xFFF01DFF, 0xFFF9AFFF);
 ItemColor TradeSkillsColor("TradeSkills", true, 0xFFF0F000, 0xFFF09253);
-ItemColor CollectibleColor("Collectible", true, 0xFFFF8C20, 0xFFFFB120);
-ItemColor NoTradeColor("NoTrade", true, 0xFFFF2020, 0xFFFF4120);
+ItemColor CollectibleColor("Collectible", true, 0xFFFF8C20, 0xFFFFCA4D);
+ItemColor NoTradeColor("NoTrade", true, 0xFFFF2020, 0xFFFF8080);
 ItemColor AttuneableColor("Attuneable", true, 0xFF6BBAFF, 0xFFFFADF4);
 
 void LoadColorsFromINI();
