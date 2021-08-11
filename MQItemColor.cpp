@@ -1,28 +1,169 @@
-// MQItemColor.cpp : Defines the entry point for the DLL application.
-//
-
-// PLUGIN_API is only to be used for callbacks.  All existing callbacks at this time
-// are shown below. Remove the ones your plugin does not use.  Always use Initialize
-// and Shutdown for setup and cleanup.
+/**
+ * MQItemColor.cpp
+ *
+ * This plugin will set the background color of items according to various item attributes.
+ * Colors are done in priority order, for example a no trade tradeskill item gets colored in tradeskill colors.
+ *
+ * Colors for specific attributes can be set in the ini. A reload is required to take effect.
+ * Colors are based on ARGB hex format. Hex "0x" Alpha "00-FF" Red "00-FF" Green "00-FF" Blue "00-FF"
+ * Example: 0xFFC0C0C0
+ *
+ * The plugin will try to load an UI XML for a item background texture to give them more visibility.
+ * A /reload or /loadskin default may be required for the texture background change to show.
+ *
+ * TODO: Add colors for other item attributes, anything important to add?
+ *
+ * TODO: Implementation feels not very efficient, from looping through all slots to how I set the color
+ * and backgrounds. Could be improvements.
+ *
+ */
 
 #include <mq/Plugin.h>
-#include <MQItemColor/MQItemColor.h>
 #include <fstream>
 
 PreSetup("MQItemColor");
 PLUGIN_VERSION(0.1);
 
+class ItemColor
+{
+protected:
+	// Name of ItemColor
+	std::string Name;
+
+	// On Flag
+	bool On;
+	bool OnDefault;
+
+	// Normal Color
+	unsigned int NormalColor;
+	unsigned int NormalColorDefault;
+
+	// Rollover Color
+	unsigned int RolloverColor;
+	unsigned int RolloverColorDefault;
+
+	// INI Section/Profile Names
+	std::string GeneralSection;
+	std::string ItemColorSection;
+	std::string OnProfile;
+	std::string NormalProfile;
+	std::string RolloverProfile;
+
+public:
+	ItemColor(std::string Name, bool On, unsigned int NormalColor, unsigned int RolloverColor) :
+		Name(Name),
+		On(On), OnDefault(On),
+		NormalColor(NormalColor), NormalColorDefault(NormalColor),
+		RolloverColor(RolloverColor), RolloverColorDefault(RolloverColor)
+	{
+		GeneralSection = "General";
+		ItemColorSection = "ItemColors";
+		OnProfile = Name + std::string("On");
+		NormalProfile = Name + std::string("Normal");
+		RolloverProfile = Name + std::string("Rollover");
+	}
+
+	bool isOn() { return On; }
+
+	// Gets for unsigned int version of Normal / Rollover colors
+	unsigned int GetNormalColor() { return NormalColor; }
+	unsigned int GetRolloverColor() { return RolloverColor; }
+
+	// Sets for unsigned int version of Normal / Rollover colors
+	void SetNormalColor(unsigned int newColor) { NormalColor = newColor; }
+	void SetRolloverColor(unsigned int newColor) { RolloverColor = newColor; }
+
+	void WriteColorINI(std::string iniFileName)
+	{
+		std::stringstream stream;
+
+		// Grab On flag from INI, write out default if not there
+		WritePrivateProfileBool(GeneralSection, OnProfile, On, iniFileName);
+
+		// Write out Normal Color converted to hex string
+		stream.str(std::string());
+		stream.clear();
+		stream << "0x" << std::hex << std::uppercase << NormalColor;
+		WritePrivateProfileString(ItemColorSection, NormalProfile, stream.str(), iniFileName);
+
+		// Write out Rollover Color converted to hex string
+		stream.str(std::string());
+		stream.clear();
+		stream << "0x" << std::hex << std::uppercase << RolloverColor;
+		WritePrivateProfileString(ItemColorSection, RolloverProfile, stream.str(), iniFileName);
+	}
+
+	void LoadFromIni(std::string iniFileName)
+	{
+		std::stringstream stream;
+
+		// Grab On flag from INI
+		On = GetPrivateProfileBool(GeneralSection, OnProfile, OnDefault, iniFileName);
+
+		// Grab Normal Color from INI
+		stream.str(std::string());
+		stream.clear();
+		stream << "0x" << std::hex << std::uppercase << NormalColorDefault;
+		std::string NormalColorStr = GetPrivateProfileString(ItemColorSection, NormalProfile, stream.str(), iniFileName);
+		try
+		{
+			NormalColor = std::stoul(NormalColorStr, nullptr, 16);
+		}
+		catch (const std::exception& e)
+		{
+			UNREFERENCED_PARAMETER(e);
+			WriteChatf("Invalid Normal Color in INI for %s", Name.c_str());
+			NormalColor = NormalColorDefault;
+		}
+
+		// Grab Rollover Color from INI
+		stream.str(std::string());
+		stream.clear();
+		stream << "0x" << std::hex << std::uppercase << RolloverColorDefault;
+		std::string RolloverColorStr = GetPrivateProfileString(ItemColorSection, RolloverProfile, stream.str(), iniFileName);
+		try
+		{
+			RolloverColor = std::stoul(RolloverColorStr, nullptr, 16);
+		}
+		catch (const std::exception& e)
+		{
+			UNREFERENCED_PARAMETER(e);
+			WriteChatf("Invalid Rollover Color in INI for %s", Name.c_str());
+			RolloverColor = NormalColorDefault;
+		}
+
+		// Write out Values in case they weren't there
+		// On Flag
+		WritePrivateProfileBool(GeneralSection, OnProfile, On, iniFileName);
+
+		// Normal Color
+		stream.str(std::string());
+		stream.clear();
+		stream << "0x" << std::hex << std::uppercase << NormalColor;
+		WritePrivateProfileString(ItemColorSection, NormalProfile, stream.str(), iniFileName);
+
+		// Rollover Color
+		stream.str(std::string());
+		stream.clear();
+		stream << "0x" << std::hex << std::uppercase << RolloverColor;
+		WritePrivateProfileString(ItemColorSection, RolloverProfile, stream.str(), iniFileName);
+	}
+};
+
+// Default Normal and Rollover Background Colors
 unsigned int DefaultNormalColor = 0xFFC0C0C0;
 unsigned int DefaultRolloverColor = 0xFFFFFFFF;
-itemcolor::ItemColor QuestColor("Quest", true, "0xFFF01DFF", "0xFFFF35FF");
-itemcolor::ItemColor TradeSkillsColor("TradeSkills", true, "0xFFF0F000", "0xFFF09253");
-itemcolor::ItemColor CollectibleColor("Collectible", true, "0xFFFF8C20", "0xFFFFB120");
-itemcolor::ItemColor NoTradeColor("NoTrade", true, "0xFFFF2020", "0xFFFF4120");
-itemcolor::ItemColor AttuneableColor("Attuneable", true, "0xFF6BBAFF", "0xFFFFADF4");
 
-void Load_INI();
+// ItemColor definitions, stores info for each item attribute we care to color
+ItemColor QuestColor("Quest", true, 0xFFF01DFF, 0xFFFF35FF);
+ItemColor TradeSkillsColor("TradeSkills", true, 0xFFF0F000, 0xFFF09253);
+ItemColor CollectibleColor("Collectible", true, 0xFFFF8C20, 0xFFFFB120);
+ItemColor NoTradeColor("NoTrade", true, 0xFFFF2020, 0xFFFF4120);
+ItemColor AttuneableColor("Attuneable", true, 0xFF6BBAFF, 0xFFFFADF4);
+
+void LoadColorsFromINI();
 void SearchInventory(bool setDefault = false);
-void SetBGColors(ItemClient* pItem, bool setDefault = false);
+void SetBGColors(CInvSlotWnd* pInvSlotWnd, ItemDefinition* pItemDef, bool setDefault = false);
 void SetBGTexture(CInvSlotWnd* pInvSlotWnd, bool setDefault = false);
 
 /**
@@ -33,16 +174,14 @@ void SetBGTexture(CInvSlotWnd* pInvSlotWnd, bool setDefault = false);
  */
 PLUGIN_API void InitializePlugin()
 {
-	DebugSpewAlways("MQItemColor::Initializing version %f", MQ2Version);
-
-	// Examples:
-	// AddCommand("/mycommand", MyCommand);
-	// AddXMLFile("MQUI_MyXMLFile.xml");
-	// AddMQ2Data("mytlo", MyTLOData);
-
+	// Set INI Path
 	sprintf_s(INIFileName, "%s\\MQ2ItemColor.ini", gPathConfig);
-	Load_INI();
-	AddXMLFile("EQUI_Animations2.xml");
+
+	// Load settings from INI
+	LoadColorsFromINI();
+
+	// Add XML for background texture
+	AddXMLFile("MQUI_ItemColorAnimation.xml");
 }
 
 /**
@@ -53,167 +192,55 @@ PLUGIN_API void InitializePlugin()
  */
 PLUGIN_API void ShutdownPlugin()
 {
-	DebugSpewAlways("MQItemColor::Shutting down");
-
+	// Set inventory back to default backgrounds
 	SearchInventory(true);
 
-	// Examples:
-	// RemoveCommand("/mycommand");
-	// RemoveXMLFile("MQUI_MyXMLFile.xml");
-	// RemoveMQ2Data("mytlo");
-	RemoveXMLFile("EQUI_Animations2.xml");
-}
+	// Write out any changes Settings to INI
+	// TODO: Can probably be improved(add color items into a list and
+	// just make this loop through and call function on each ? )
+	QuestColor.WriteColorINI(INIFileName);
+	TradeSkillsColor.WriteColorINI(INIFileName);
+	CollectibleColor.WriteColorINI(INIFileName);
+	NoTradeColor.WriteColorINI(INIFileName);
+	AttuneableColor.WriteColorINI(INIFileName);
 
-/**
- * @fn OnCleanUI
- *
- * This is called once just before the shutdown of the UI system and each time the
- * game requests that the UI be cleaned.  Most commonly this happens when a
- * /loadskin command is issued, but it also occurs when reaching the character
- * select screen and when first entering the game.
- *
- * One purpose of this function is to allow you to destroy any custom windows that
- * you have created and cleanup any UI items that need to be removed.
- */
-PLUGIN_API void OnCleanUI()
-{
-	// DebugSpewAlways("MQItemColor::OnCleanUI()");
+	// Remove XML for background texture
+	RemoveXMLFile("MQUI_ItemColorAnimation.xml");
 }
-
-/**
- * @fn OnReloadUI
- *
- * This is called once just after the UI system is loaded. Most commonly this
- * happens when a /loadskin command is issued, but it also occurs when first
- * entering the game.
- *
- * One purpose of this function is to allow you to recreate any custom windows
- * that you have setup.
- */
-PLUGIN_API void OnReloadUI()
-{
-	// DebugSpewAlways("MQItemColor::OnReloadUI()");
-}
-
 
 /**
  * @fn OnPulse
  *
  * This is called each time MQ2 goes through its heartbeat (pulse) function.
  *
- * Because this happens very frequently, it is recommended to have a timer or
- * counter at the start of this call to limit the amount of times the code in
- * this section is executed.
+ * Every time our pulse counter is hit, we take a look at
+ * what is in our inventory and color it accordingly.
  */
 PLUGIN_API void OnPulse()
 {
 	static std::chrono::steady_clock::time_point PulseTimer = std::chrono::steady_clock::now();
+
 	// Run only after timer is up
 	if ((std::chrono::steady_clock::now() > PulseTimer) && (gGameState == GAMESTATE_INGAME))
 	{
-		//clock_t t;
-		//t = clock();
-
+		// Go through inventory and color appropriately
 		SearchInventory();
 
-		QuestColor.WriteColorINI(INIFileName);
-		TradeSkillsColor.WriteColorINI(INIFileName);
-		CollectibleColor.WriteColorINI(INIFileName);
-		NoTradeColor.WriteColorINI(INIFileName);
-		AttuneableColor.WriteColorINI(INIFileName);
-
-		//t = clock() - t;
-
-		//WriteChatf("It took me %d clicks (%f seconds).\n", t, ((float)t) / CLOCKS_PER_SEC);
-
-		// Wait 1 seconds before running again
+		// Wait 100ms before running again
+		// TODO: Is this too quick? too slow?
 		PulseTimer = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
-		//DebugSpewAlways("MQ2ItemColor::OnPulse()");
 	}
 }
 
 /**
- * @fn OnWriteChatColor
+ * @fn LoadColorsFromINI
  *
- * This is called each time WriteChatColor is called (whether by MQ2Main or by any
- * plugin).  This can be considered the "when outputting text from MQ" callback.
- *
- * This ignores filters on display, so if they are needed either implement them in
- * this section or see @ref OnIncomingChat where filters are already handled.
- *
- * If CEverQuest::dsp_chat is not called, and events are required, they'll need to
- * be implemented here as well.  Otherwise, see @ref OnIncomingChat where that is
- * already handled.
- *
- * For a list of Color values, see the constants for USERCOLOR_.  The default is
- * USERCOLOR_DEFAULT.
- *
- * @param Line const char* - The line that was passed to WriteChatColor
- * @param Color int - The type of chat text this is to be sent as
- * @param Filter int - (default 0)
+ * Load information from the INI for each of our colors
+ * 
+ * TODO: Can probably be improved (add color items into a list and
+ * just make this loop through and call function on each?)
  */
-PLUGIN_API void OnWriteChatColor(const char* Line, int Color, int Filter)
-{
-	// DebugSpewAlways("MQItemColor::OnWriteChatColor(%s, %d, %d)", Line, Color, Filter);
-}
-
-/**
- * @fn OnIncomingChat
- *
- * This is called each time a line of chat is shown.  It occurs after MQ filters
- * and chat events have been handled.  If you need to know when MQ2 has sent chat,
- * consider using @ref OnWriteChatColor instead.
- *
- * For a list of Color values, see the constants for USERCOLOR_. The default is
- * USERCOLOR_DEFAULT.
- *
- * @param Line const char* - The line of text that was shown
- * @param Color int - The type of chat text this was sent as
- *
- * @return bool - Whether to filter this chat from display
- */
-PLUGIN_API bool OnIncomingChat(const char* Line, DWORD Color)
-{
-	// DebugSpewAlways("MQItemColor::OnIncomingChat(%s, %d)", Line, Color);
-	return false;
-}
-
-
-/**
- * @fn OnLoadPlugin
- *
- * This is called each time a plugin is loaded (ex: /plugin someplugin), after the
- * plugin has been loaded and any associated -AutoExec.cfg file has been launched.
- * This means it will be executed after the plugin's @ref InitializePlugin callback.
- *
- * This is also called when THIS plugin is loaded, but initialization tasks should
- * still be done in @ref InitializePlugin.
- *
- * @param Name const char* - The name of the plugin that was loaded
- */
-PLUGIN_API void OnLoadPlugin(const char* Name)
-{
-	// DebugSpewAlways("MQItemColor::OnLoadPlugin(%s)", Name);
-}
-
-/**
- * @fn OnUnloadPlugin
- *
- * This is called each time a plugin is unloaded (ex: /plugin someplugin unload),
- * just prior to the plugin unloading.  This means it will be executed prior to that
- * plugin's @ref ShutdownPlugin callback.
- *
- * This is also called when THIS plugin is unloaded, but shutdown tasks should still
- * be done in @ref ShutdownPlugin.
- *
- * @param Name const char* - The name of the plugin that is to be unloaded
- */
-PLUGIN_API void OnUnloadPlugin(const char* Name)
-{
-	// DebugSpewAlways("MQItemColor::OnUnloadPlugin(%s)", Name);
-}
-
-void Load_INI()
+void LoadColorsFromINI()
 {
 	QuestColor.LoadFromIni(INIFileName);
 	TradeSkillsColor.LoadFromIni(INIFileName);
@@ -222,120 +249,163 @@ void Load_INI()
 	AttuneableColor.LoadFromIni(INIFileName);
 }
 
+/**
+ * @fn SearchInventory
+ *
+ * Searches through inventory slots to color only those slots we care about
+ * Only colors those slots that are part of the player main inventory or bags,
+ * avoids coloring worn items or any item buttons that may be created.
+ *
+ * @param setDefault bool - True to set the original colors, false (default) to set based on item attributes
+ */
 void SearchInventory(bool setDefault)
 {
-	// loop through inv slots & worn slots
-	for (unsigned short usSlot = InvSlot_FirstBagSlot; usSlot < InvSlot_NumInvSlots; usSlot++)
+	// Loop through each inventory slot (start at first bag slot as we don't care about worn items)
+	for (int index = InvSlot_FirstBagSlot; index < pInvSlotMgr->TotalSlots; index++)
 	{
-		if (ItemClient* pItem = GetPcProfile()->GetInventorySlot(usSlot))
+		// Grab slot at index
+		CInvSlot* pInvSlot = pInvSlotMgr->SlotArray[index];
+		if (!pInvSlot || !pInvSlot->bEnabled)
 		{
-			// if there is a non-empty bag in this slot
-			if (pItem->IsContainer() && !pItem->IsEmpty())
+			continue;
+		}
+
+		// Grab global index and pointer to item if one exists at slot
+		ItemGlobalIndex globalIndex = pInvSlot->pInvSlotWnd ? pInvSlot->pInvSlotWnd->ItemLocation : ItemGlobalIndex();
+		ItemPtr pItem = pLocalPC->GetItemByGlobalIndex(globalIndex);
+
+		// If our global index is valid and is located in container possessions (inventory)
+		if (globalIndex.IsValidLocation() && (globalIndex.GetLocation() == eItemContainerPossessions))
+		{
+			// Grab the pointer for its InvSlotWnd
+			CInvSlotWnd* pInvSlotWnd = pInvSlot->pInvSlotWnd;
+			if (pInvSlotWnd && pInvSlotWnd->IsVisible())
 			{
-				for (const ItemPtr& pBagSlot : pItem->GetHeldItems())
+				if (!pItem)
 				{
-					if (pBagSlot)
-					{
-						// Set color of ItemClient* of bag slot inside bag
-						if (ItemClient* bagSlotIC = pBagSlot.get())
-						{
-							SetBGColors(bagSlotIC, setDefault);
-						}
-					}
-					else
-					{
-						// Empty Bag Slot, Nothing to Do
-					}
+					// No Item but Valid InvSlotWnd, color default (empty slot)
+					SetBGColors(pInvSlotWnd, nullptr, true);
+					// Move to next slot
+					continue;
 				}
-			}
-			else if (!pItem->IsContainer())
-			{
-				SetBGColors(pItem, setDefault);
+
+				// Grab ItemDefinition for item at slot
+				ItemDefinition* pItemDef = pItem->GetItemDefinition();
+				if (!pItemDef || pInvSlotWnd->bHotButton)
+				{
+					// Not a valid ItemDefinition or we are dealing with a hotbutton slot
+					// Move to next slot
+					continue;
+				}
+
+				// Set background color and texture for InvSlotWnd based on ItemDefinition
+				SetBGColors(pInvSlotWnd, pItemDef, setDefault);
 			}
 		}
 	}
 }
 
-void SetBGColors(ItemClient* pItem, bool setDefault)
+/**
+ * @fn SetBGColors
+ *
+ * This function will change the given CInvSlotWnd pointer's CTextureAnimation
+ * to/from the default or a more visible background for inventory slots.
+ * Will also change the tint of the background normal and rollover colors
+ *
+ * @param pInvSlotWnd CInvSlotWnd* - Pointer to the CInvSlotWnd we want to change the background color of
+ * @param pItemDef ItemDefinition* - Pointer to the ItemDefinition of the item we are dealing with
+ * @param setDefault bool - True to set the original colors, false (default) to set based on item attributes
+ */
+void SetBGColors(CInvSlotWnd* pInvSlotWnd, ItemDefinition* pItemDef, bool setDefault)
 {
-	// Make sure ItemClient pointer is valid
-	if (pItem != nullptr)
+	// Valid SlotWnd and ItemDef means we have an item in the slot to color
+	if ((pInvSlotWnd != nullptr) && (pItemDef != nullptr))
 	{
-		// Grab Inv Slot Pointer and Item Definition Pointer
-		CInvSlot* pInvSlot = GetInvSlot(pItem->GetItemLocation());
-		ItemDefinition* pItemDef = pItem->GetItemDefinition();
-
-		// Make sure both are valid
-		if ((pInvSlot != nullptr) && (pItemDef != nullptr))
+		// Based on Item Definition Flags in priority order, color background
+		// Default (Return to "Normal")
+		if (setDefault)
 		{
-			// Grab Inv Slot Window Pointer and make sure its valid
-			if (CInvSlotWnd* pInvSlotWnd = pInvSlot->pInvSlotWnd)
-			{
-
-				// Based on Item Definition Flags in priority order, color background
-				if (setDefault)
-				{
-					SetBGTexture(pInvSlotWnd, setDefault);
-					pInvSlotWnd->BGTintNormal = DefaultNormalColor;
-					pInvSlotWnd->BGTintRollover = DefaultRolloverColor;
-				}
-				else if (pItemDef->QuestItem && QuestColor.isOn())
-				{
-					SetBGTexture(pInvSlotWnd);
-					pInvSlotWnd->BGTintNormal = QuestColor.GetNormalColor();
-					pInvSlotWnd->BGTintRollover = QuestColor.GetRolloverColor();
-				}
-				else if (pItemDef->TradeSkills && TradeSkillsColor.isOn())
-				{
-					SetBGTexture(pInvSlotWnd);
-					pInvSlotWnd->BGTintNormal = TradeSkillsColor.GetNormalColor();
-					pInvSlotWnd->BGTintRollover = TradeSkillsColor.GetRolloverColor();
-				}
-				else if (pItemDef->Collectible && CollectibleColor.isOn())
-				{
-					SetBGTexture(pInvSlotWnd);
-					pInvSlotWnd->BGTintNormal = CollectibleColor.GetNormalColor();
-					pInvSlotWnd->BGTintRollover = CollectibleColor.GetRolloverColor();
-				}
-				else if (!pItemDef->IsDroppable && NoTradeColor.isOn())
-				{
-					SetBGTexture(pInvSlotWnd);
-					pInvSlotWnd->BGTintNormal = NoTradeColor.GetNormalColor();
-					pInvSlotWnd->BGTintRollover = NoTradeColor.GetRolloverColor();
-				}
-				else if (pItemDef->Attuneable && AttuneableColor.isOn())
-				{
-					SetBGTexture(pInvSlotWnd);
-					pInvSlotWnd->BGTintNormal = AttuneableColor.GetNormalColor();
-					pInvSlotWnd->BGTintRollover = AttuneableColor.GetRolloverColor();
-				}
-				else
-				{
-					SetBGTexture(pInvSlotWnd, true);
-					pInvSlotWnd->BGTintNormal = DefaultNormalColor;
-					pInvSlotWnd->BGTintRollover = DefaultRolloverColor;
-				}
-			}
+			SetBGTexture(pInvSlotWnd, setDefault);
+			pInvSlotWnd->BGTintNormal = DefaultNormalColor;
+			pInvSlotWnd->BGTintRollover = DefaultRolloverColor;
 		}
+		// Quest
+		else if (pItemDef->QuestItem && QuestColor.isOn())
+		{
+			SetBGTexture(pInvSlotWnd);
+			pInvSlotWnd->BGTintNormal = QuestColor.GetNormalColor();
+			pInvSlotWnd->BGTintRollover = QuestColor.GetRolloverColor();
+		}
+		// TradeSkill
+		else if (pItemDef->TradeSkills && TradeSkillsColor.isOn())
+		{
+			SetBGTexture(pInvSlotWnd);
+			pInvSlotWnd->BGTintNormal = TradeSkillsColor.GetNormalColor();
+			pInvSlotWnd->BGTintRollover = TradeSkillsColor.GetRolloverColor();
+		}
+		// Collectible
+		else if (pItemDef->Collectible && CollectibleColor.isOn())
+		{
+			SetBGTexture(pInvSlotWnd);
+			pInvSlotWnd->BGTintNormal = CollectibleColor.GetNormalColor();
+			pInvSlotWnd->BGTintRollover = CollectibleColor.GetRolloverColor();
+		}
+		// No Trade
+		else if (!pItemDef->IsDroppable && NoTradeColor.isOn())
+		{
+			SetBGTexture(pInvSlotWnd);
+			pInvSlotWnd->BGTintNormal = NoTradeColor.GetNormalColor();
+			pInvSlotWnd->BGTintRollover = NoTradeColor.GetRolloverColor();
+		}
+		// Attuneable
+		else if (pItemDef->Attuneable && AttuneableColor.isOn())
+		{
+			SetBGTexture(pInvSlotWnd);
+			pInvSlotWnd->BGTintNormal = AttuneableColor.GetNormalColor();
+			pInvSlotWnd->BGTintRollover = AttuneableColor.GetRolloverColor();
+		}
+		// Undefined (Return to "Normal")
 		else
 		{
-			// Inventory Slot Not Visible? Nothing to Do
+			SetBGTexture(pInvSlotWnd, true);
+			pInvSlotWnd->BGTintNormal = DefaultNormalColor;
+			pInvSlotWnd->BGTintRollover = DefaultRolloverColor;
 		}
+	}
+	// Only pInvSlotWnd valid, empty slot, return to normal
+	else if (pInvSlotWnd != nullptr)
+	{
+		SetBGTexture(pInvSlotWnd, true);
+		pInvSlotWnd->BGTintNormal = DefaultNormalColor;
+		pInvSlotWnd->BGTintRollover = DefaultRolloverColor;
 	}
 }
 
+
+/**
+ * @fn SetBGTexture
+ *
+ * This function will change the given CInvSlotWnd pointer's CTextureAnimation
+ * to/from the default or a more visible background for inventory slots.
+ *
+ * @param pInvSlotWnd CInvSlotWnd* - Pointer to the CInvSlotWnd we want to change the texture of
+ * @param setDefault bool - True to set the original texture, false (default) to set more visible background texture
+ */
 void SetBGTexture(CInvSlotWnd* pInvSlotWnd, bool setDefault)
 {
-	if (pInvSlotWnd->pBackground != nullptr)
+	if ((pInvSlotWnd != nullptr) && (pInvSlotWnd->pBackground != nullptr))
 	{
 		CTextureAnimation* newTex = nullptr;
+
+		// Return texture to normal
 		if (setDefault)
 		{
 			newTex = pSidlMgr->FindAnimation("A_RecessedBox");
 		}
+		// Set texture to more visible background
 		else
 		{
-			newTex = pSidlMgr->FindAnimation("A_RecessedBoxMQ2");
+			newTex = pSidlMgr->FindAnimation("A_ItemColorRecessedBox");
 		}
 
 		if (newTex != nullptr)
@@ -343,7 +413,5 @@ void SetBGTexture(CInvSlotWnd* pInvSlotWnd, bool setDefault)
 			pInvSlotWnd->pBackground = newTex;
 
 		}
-
-		WriteChatf("%s", pInvSlotWnd->pBackground->GetName().c_str());
 	}
 }
