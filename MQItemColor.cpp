@@ -24,6 +24,8 @@
 PreSetup("MQItemColor");
 PLUGIN_VERSION(1.0);
 
+uint32_t bmMQItemColor = 0;
+
 class ItemColor
 {
 protected:
@@ -188,6 +190,9 @@ PLUGIN_API void InitializePlugin()
 
 	// Add XML for background texture
 	AddXMLFile("MQUI_ItemColorAnimation.xml");
+
+	// Add Benchmark
+	bmMQItemColor = AddMQ2Benchmark("MQItemColor");
 }
 
 /**
@@ -213,6 +218,9 @@ PLUGIN_API void ShutdownPlugin()
 
 	// Remove XML for background texture
 	RemoveXMLFile("MQUI_ItemColorAnimation.xml");
+
+	// Remove benchmark
+	RemoveMQ2Benchmark(bmMQItemColor);
 }
 
 /**
@@ -225,6 +233,9 @@ PLUGIN_API void ShutdownPlugin()
  */
 PLUGIN_API void OnPulse()
 {
+	// Benchmark on pulse
+	MQScopedBenchmark bm(bmMQItemColor);
+
 	static std::chrono::steady_clock::time_point PulseTimer = std::chrono::steady_clock::now();
 
 	// Run only after timer is up
@@ -243,7 +254,7 @@ PLUGIN_API void OnPulse()
  * @fn LoadColorsFromINI
  *
  * Load information from the INI for each of our colors
- * 
+ *
  * TODO: Can probably be improved (add color items into a list and
  * just make this loop through and call function on each?)
  */
