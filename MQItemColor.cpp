@@ -19,12 +19,9 @@
  */
 
 #include <mq/Plugin.h>
-#include <fstream>
 
 PreSetup("MQItemColor");
-PLUGIN_VERSION(1.0);
-
-uint32_t bmMQItemColor = 0;
+PLUGIN_VERSION(1.1);
 
 class ItemColor
 {
@@ -64,7 +61,7 @@ public:
 		NormalProfile = Name + std::string("Normal");
 		RolloverProfile = Name + std::string("Rollover");
 	}
-
+	
 	bool isOn() { return On; }
 
 	// Gets for unsigned int version of Normal / Rollover colors
@@ -77,28 +74,20 @@ public:
 
 	void WriteColorINI(std::string iniFileName)
 	{
-		std::stringstream stream;
-
 		// Grab On flag from INI, write out default if not there
 		WritePrivateProfileBool(GeneralSection, OnProfile, On, iniFileName);
 
 		// Write out Normal Color converted to hex string
-		stream.str(std::string());
-		stream.clear();
-		stream << "0x" << std::hex << std::uppercase << NormalColor;
-		WritePrivateProfileString(ItemColorSection, NormalProfile, stream.str(), iniFileName);
+		std::string NormalColorStr = fmt::format("0x{:X}", NormalColor);
+		WritePrivateProfileString(ItemColorSection, NormalProfile, NormalColorStr, iniFileName);
 
 		// Write out Rollover Color converted to hex string
-		stream.str(std::string());
-		stream.clear();
-		stream << "0x" << std::hex << std::uppercase << RolloverColor;
-		WritePrivateProfileString(ItemColorSection, RolloverProfile, stream.str(), iniFileName);
+		std::string RolloverColorStr = fmt::format("0x{:X}", RolloverColor);
+		WritePrivateProfileString(ItemColorSection, RolloverProfile, RolloverColorStr, iniFileName);
 	}
 
 	void LoadFromIni(std::string iniFileName)
 	{
-		std::stringstream stream;
-
 		// Grab On flag from INI
 		On = GetPrivateProfileBool(GeneralSection, OnProfile, OnDefault, iniFileName);
 		// Write out On flag just in case it wasn't there
@@ -110,10 +99,8 @@ public:
 		// No Normal Color found in INI, Write out Default
 		if (NormalColorStr.empty())
 		{
-			stream.str(std::string());
-			stream.clear();
-			stream << "0x" << std::hex << std::uppercase << NormalColorDefault;
-			WritePrivateProfileString(ItemColorSection, NormalProfile, stream.str(), iniFileName);
+			NormalColorStr = fmt::format("0x{:X}", NormalColorDefault);
+			WritePrivateProfileString(ItemColorSection, NormalProfile, NormalColorStr, iniFileName);
 			NormalColor = NormalColorDefault;
 		}
 		// Normal Color found in INI, attempt to convert to unsigned int
@@ -138,10 +125,8 @@ public:
 		// No Rollover Color found in INI, Write out Default
 		if (RolloverColorStr.empty())
 		{
-			stream.str(std::string());
-			stream.clear();
-			stream << "0x" << std::hex << std::uppercase << RolloverColorDefault;
-			WritePrivateProfileString(ItemColorSection, RolloverProfile, stream.str(), iniFileName);
+			RolloverColorStr = fmt::format("0x{:X}", RolloverColorDefault);
+			WritePrivateProfileString(ItemColorSection, RolloverProfile, RolloverColorStr, iniFileName);
 			RolloverColor = RolloverColorDefault;
 		}
 		// Rollover Color found in INI, attempt to convert to unsigned int
@@ -160,6 +145,9 @@ public:
 		}
 	}
 };
+
+// Benchmark
+uint32_t bmMQItemColor = 0;
 
 // Default Normal and Rollover Background Colors
 unsigned int DefaultNormalColor = 0xFFC0C0C0;
