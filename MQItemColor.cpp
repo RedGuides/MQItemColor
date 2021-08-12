@@ -140,7 +140,7 @@ public:
 			stream.clear();
 			stream << "0x" << std::hex << std::uppercase << RolloverColorDefault;
 			WritePrivateProfileString(ItemColorSection, RolloverProfile, stream.str(), iniFileName);
-			RolloverColor = NormalColorDefault;
+			RolloverColor = RolloverColorDefault;
 		}
 		// Rollover Color found in INI, attempt to convert to unsigned int
 		else
@@ -153,7 +153,7 @@ public:
 			{
 				UNREFERENCED_PARAMETER(e);
 				WriteChatf("Invalid Rollover Color in INI for %s", Name.c_str());
-				RolloverColor = NormalColorDefault;
+				RolloverColor = RolloverColorDefault;
 			}
 		}
 	}
