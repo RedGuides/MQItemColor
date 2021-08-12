@@ -22,7 +22,7 @@
 #include <fstream>
 
 PreSetup("MQItemColor");
-PLUGIN_VERSION(0.1);
+PLUGIN_VERSION(1.0);
 
 class ItemColor
 {
@@ -99,54 +99,63 @@ public:
 
 		// Grab On flag from INI
 		On = GetPrivateProfileBool(GeneralSection, OnProfile, OnDefault, iniFileName);
-
-		// Grab Normal Color from INI
-		stream.str(std::string());
-		stream.clear();
-		stream << "0x" << std::hex << std::uppercase << NormalColorDefault;
-		std::string NormalColorStr = GetPrivateProfileString(ItemColorSection, NormalProfile, stream.str(), iniFileName);
-		try
-		{
-			NormalColor = std::stoul(NormalColorStr, nullptr, 16);
-		}
-		catch (const std::exception& e)
-		{
-			UNREFERENCED_PARAMETER(e);
-			WriteChatf("Invalid Normal Color in INI for %s", Name.c_str());
-			NormalColor = NormalColorDefault;
-		}
-
-		// Grab Rollover Color from INI
-		stream.str(std::string());
-		stream.clear();
-		stream << "0x" << std::hex << std::uppercase << RolloverColorDefault;
-		std::string RolloverColorStr = GetPrivateProfileString(ItemColorSection, RolloverProfile, stream.str(), iniFileName);
-		try
-		{
-			RolloverColor = std::stoul(RolloverColorStr, nullptr, 16);
-		}
-		catch (const std::exception& e)
-		{
-			UNREFERENCED_PARAMETER(e);
-			WriteChatf("Invalid Rollover Color in INI for %s", Name.c_str());
-			RolloverColor = NormalColorDefault;
-		}
-
-		// Write out Values in case they weren't there
-		// On Flag
+		// Write out On flag just in case it wasn't there
 		WritePrivateProfileBool(GeneralSection, OnProfile, On, iniFileName);
 
-		// Normal Color
-		stream.str(std::string());
-		stream.clear();
-		stream << "0x" << std::hex << std::uppercase << NormalColor;
-		WritePrivateProfileString(ItemColorSection, NormalProfile, stream.str(), iniFileName);
+		// Grab Normal Color from INI
+		std::string NormalColorStr = GetPrivateProfileString(ItemColorSection, NormalProfile, "", iniFileName);
 
-		// Rollover Color
-		stream.str(std::string());
-		stream.clear();
-		stream << "0x" << std::hex << std::uppercase << RolloverColor;
-		WritePrivateProfileString(ItemColorSection, RolloverProfile, stream.str(), iniFileName);
+		// No Normal Color found in INI, Write out Default
+		if (NormalColorStr.empty())
+		{
+			stream.str(std::string());
+			stream.clear();
+			stream << "0x" << std::hex << std::uppercase << NormalColorDefault;
+			WritePrivateProfileString(ItemColorSection, NormalProfile, stream.str(), iniFileName);
+			NormalColor = NormalColorDefault;
+		}
+		// Normal Color found in INI, attempt to convert to unsigned int
+		else
+		{
+			try
+			{
+				NormalColor = std::stoul(NormalColorStr, nullptr, 16);
+			}
+			catch (const std::exception& e)
+			{
+				UNREFERENCED_PARAMETER(e);
+				WriteChatf("Invalid Normal Color in INI for %s", Name.c_str());
+				NormalColor = NormalColorDefault;
+			}
+		}
+
+
+		// Grab Rollover Color from INI
+		std::string RolloverColorStr = GetPrivateProfileString(ItemColorSection, RolloverProfile, "", iniFileName);
+
+		// No Rollover Color found in INI, Write out Default
+		if (RolloverColorStr.empty())
+		{
+			stream.str(std::string());
+			stream.clear();
+			stream << "0x" << std::hex << std::uppercase << RolloverColorDefault;
+			WritePrivateProfileString(ItemColorSection, RolloverProfile, stream.str(), iniFileName);
+			RolloverColor = NormalColorDefault;
+		}
+		// Rollover Color found in INI, attempt to convert to unsigned int
+		else
+		{
+			try
+			{
+				RolloverColor = std::stoul(RolloverColorStr, nullptr, 16);
+			}
+			catch (const std::exception& e)
+			{
+				UNREFERENCED_PARAMETER(e);
+				WriteChatf("Invalid Rollover Color in INI for %s", Name.c_str());
+				RolloverColor = NormalColorDefault;
+			}
+		}
 	}
 };
 
@@ -195,14 +204,15 @@ PLUGIN_API void ShutdownPlugin()
 	// Set inventory back to default backgrounds
 	SearchInventory(true);
 
-	// Write out any changes Settings to INI
+	// TODO: Write out settings once a method for editing settings while plugin loaded
+	// 	   is implemented. For now we only pull from ini while loading
 	// TODO: Can probably be improved(add color items into a list and
-	// just make this loop through and call function on each ? )
-	QuestColor.WriteColorINI(INIFileName);
-	TradeSkillsColor.WriteColorINI(INIFileName);
-	CollectibleColor.WriteColorINI(INIFileName);
-	NoTradeColor.WriteColorINI(INIFileName);
-	AttuneableColor.WriteColorINI(INIFileName);
+	// 	   just make this loop through and call function on each ? )
+	//QuestColor.WriteColorINI(INIFileName);
+	//TradeSkillsColor.WriteColorINI(INIFileName);
+	//CollectibleColor.WriteColorINI(INIFileName);
+	//NoTradeColor.WriteColorINI(INIFileName);
+	//AttuneableColor.WriteColorINI(INIFileName);
 
 	// Remove XML for background texture
 	RemoveXMLFile("MQUI_ItemColorAnimation.xml");
