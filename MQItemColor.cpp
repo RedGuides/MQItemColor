@@ -183,9 +183,6 @@ void SetBGTexture(CInvSlotWnd* pInvSlotWnd, bool setDefault = false);
  */
 PLUGIN_API void InitializePlugin()
 {
-	// Set INI Path
-	sprintf_s(INIFileName, "%s\\MQ2ItemColor.ini", gPathConfig);
-
 	// Load settings from INI
 	LoadColorsFromINI();
 
