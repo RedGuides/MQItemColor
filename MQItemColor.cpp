@@ -13,8 +13,7 @@
  *
  * TODO: Add colors for other item attributes, anything important to add?
  *
- * TODO: Implementation feels not very efficient, from looping through all slots to how I set the color
- * and backgrounds. Could be improvements.
+ * TODO: Coloring can be improved, CInvSlotWnd can have draw overridden to force the background colors we want.
  *
  */
 
@@ -61,7 +60,7 @@ public:
 		NormalProfile = Name + std::string("Normal");
 		RolloverProfile = Name + std::string("Rollover");
 	}
-	
+
 	bool isOn() { return On; }
 
 	// Gets for unsigned int version of Normal / Rollover colors
@@ -266,8 +265,8 @@ void LoadColorsFromINI()
  */
 void SearchInventory(bool setDefault)
 {
-	// Loop through each inventory slot (start at first bag slot as we don't care about worn items)
-	for (int index = InvSlot_FirstBagSlot; index < pInvSlotMgr->TotalSlots; index++)
+	// Loop through each inventory slot
+	for (int index = 0; index < pInvSlotMgr->TotalSlots; index++)
 	{
 		// Grab slot at index
 		CInvSlot* pInvSlot = pInvSlotMgr->SlotArray[index];
@@ -279,33 +278,49 @@ void SearchInventory(bool setDefault)
 		// Grab global index and pointer to item if one exists at slot
 		ItemGlobalIndex globalIndex = pInvSlot->pInvSlotWnd ? pInvSlot->pInvSlotWnd->ItemLocation : ItemGlobalIndex();
 		ItemPtr pItem = pLocalPC->GetItemByGlobalIndex(globalIndex);
+		ItemContainerInstance location = globalIndex.GetLocation();
 
-		// If our global index is valid and is located in container possessions (inventory)
-		if (globalIndex.IsValidLocation() && (globalIndex.GetLocation() == eItemContainerPossessions))
+		// Check if Index is Valid and the locations we want (Inventory, Bank, or Shared Bank)
+		if (globalIndex.IsValidLocation() &&
+			((location == eItemContainerPossessions) || (location == eItemContainerBank) || (location == eItemContainerSharedBank)))
 		{
-			// Grab the pointer for its InvSlotWnd
-			CInvSlotWnd* pInvSlotWnd = pInvSlot->pInvSlotWnd;
-			if (pInvSlotWnd && pInvSlotWnd->IsVisible())
+			// Skip if Index is an Equipped Location
+			if (globalIndex.IsEquippedLocation())
 			{
-				if (!pItem)
-				{
-					// No Item but Valid InvSlotWnd, color default (empty slot)
-					SetBGColors(pInvSlotWnd, nullptr, true);
-					// Move to next slot
-					continue;
-				}
+				continue;
+			}
 
+			// Grab the pointer for its CInvSlotWnd
+			CInvSlotWnd* pInvSlotWnd = pInvSlot->pInvSlotWnd;
+
+			// Skip if no valid CInvSlotWnd or Hot Button
+			if (!pInvSlotWnd || pInvSlotWnd->bHotButton)
+			{
+				continue;
+			}
+
+			// The remaining CInvSlotWnd at this point should be those in 
+			// Inventory, Bank, or Shared Bank that either contain an item or not.
+
+			// Contains Item
+			if (pItem)
+			{
 				// Grab ItemDefinition for item at slot
 				ItemDefinition* pItemDef = pItem->GetItemDefinition();
-				if (!pItemDef || pInvSlotWnd->bHotButton)
+				if (!pItemDef)
 				{
-					// Not a valid ItemDefinition or we are dealing with a hotbutton slot
-					// Move to next slot
+					// Skip, no valid ItemDefinition
 					continue;
 				}
 
 				// Set background color and texture for InvSlotWnd based on ItemDefinition
 				SetBGColors(pInvSlotWnd, pItemDef, setDefault);
+			}
+			// Does NOT Contain Item
+			else
+			{
+				// No Item but Valid InvSlotWnd, color default (empty slot)
+				SetBGColors(pInvSlotWnd, nullptr, true);
 			}
 		}
 	}
