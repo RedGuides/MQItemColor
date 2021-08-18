@@ -11,14 +11,6 @@
 * The plugin will try to load an UI XML for a item background texture to give them more visibility.
 * A /reload or /loadskin default may be required for the texture background change to show.
 *
-* TODO: Add colors for other item attributes, anything important to add?
-*
-* TODO: Coloring can be improved, CInvSlotWnd can have draw overridden to force the background colors we want.
-* 
-* TODO: GUI addition for editing colors while loaded.
-* 
-* TODO: INI improvements, commands for editing/reloading.
-*
 */
 
 #include <mq/Plugin.h>
@@ -33,6 +25,10 @@ uint32_t bmMQItemColor = 0;
 // Default Normal and Rollover Background Colors
 unsigned int DefaultNormalColor = 0xFFC0C0C0;
 unsigned int DefaultRolloverColor = 0xFFFFFFFF;
+
+// Flags for checks needed if on FV Server
+bool FVServer = false;
+bool FVNormalNoTrade = false;
 
 // ItemColor class holds information for each attribute we want to have a special color for
 // Holds the Name, Normal Color, and Rollover Color.  Knows how to read/write itself to ini.
@@ -415,6 +411,40 @@ PLUGIN_API void ShutdownPlugin()
 
     // Remove benchmark
     RemoveMQ2Benchmark(bmMQItemColor);
+}
+
+
+/**
+ * @fn SetGameState
+ *
+ * This is called when the GameState changes.  It is also called once after the
+ * plugin is initialized.
+ *
+ * For a list of known GameState values, see the constants that begin with
+ * GAMESTATE_.  The most commonly used of these is GAMESTATE_INGAME.
+ *
+ * When zoning, this is called once after @ref OnBeginZone @ref OnRemoveSpawn
+ * and @ref OnRemoveGroundItem are all done and then called once again after
+ * @ref OnEndZone and @ref OnAddSpawn are done but prior to @ref OnAddGroundItem
+ * and @ref OnZoned
+ *
+ * @param GameState int - The value of GameState at the time of the call
+ */
+PLUGIN_API void SetGameState(int GameState)
+{
+    if (GameState == GAMESTATE_INGAME)
+    {
+        // Check if we are on FV, set flag to true if we are
+        // This flag will be used for any special logic we need if on FV
+        if (strcmp(EQADDR_SERVERNAME, "firiona") == 0)
+        {
+            FVServer = true;
+        }
+        else
+        {
+            FVServer = false;
+        }
+    }
 }
 
 
