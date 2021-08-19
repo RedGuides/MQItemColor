@@ -11,14 +11,6 @@
 * The plugin will try to load an UI XML for a item background texture to give them more visibility.
 * A /reload or /loadskin default may be required for the texture background change to show.
 *
-* TODO: Add colors for other item attributes, anything important to add?
-*
-* TODO: Coloring can be improved, CInvSlotWnd can have draw overridden to force the background colors we want.
-* 
-* TODO: GUI addition for editing colors while loaded.
-* 
-* TODO: INI improvements, commands for editing/reloading.
-*
 */
 
 #include <mq/Plugin.h>
@@ -33,6 +25,13 @@ uint32_t bmMQItemColor = 0;
 // Default Normal and Rollover Background Colors
 unsigned int DefaultNormalColor = 0xFFC0C0C0;
 unsigned int DefaultRolloverColor = 0xFFFFFFFF;
+
+// General Settings Section
+std::string GeneralSection = "General";
+
+// Flags for checks needed if on FV Server
+bool FVServer = false;
+bool FVNormalNoTrade = false;
 
 // ItemColor class holds information for each attribute we want to have a special color for
 // Holds the Name, Normal Color, and Rollover Color.  Knows how to read/write itself to ini.
@@ -55,7 +54,6 @@ protected:
     unsigned int RolloverColorDefault;
 
     // INI Section/Profile Names
-    std::string GeneralSection;
     std::string ItemColorSection;
     std::string OnProfile;
     std::string NormalProfile;
@@ -68,8 +66,7 @@ public:
         NormalColor(NormalColor), NormalColorDefault(NormalColor),
         RolloverColor(RolloverColor), RolloverColorDefault(RolloverColor)
     {
-        GeneralSection = "General";
-        ItemColorSection = "ItemColors";
+        ItemColorSection = Name;
         OnProfile = Name + "On";
         NormalProfile = Name + "Normal";
         RolloverProfile = Name + "Rollover";
@@ -88,7 +85,7 @@ public:
     void WriteColorINI(std::string iniFileName)
     {
         // Grab On flag from INI, write out default if not there
-        WritePrivateProfileBool(GeneralSection, OnProfile, On, iniFileName);
+        WritePrivateProfileBool(ItemColorSection, OnProfile, On, iniFileName);
 
         // Write out Normal Color converted to hex string
         std::string NormalColorStr = fmt::format("0x{:X}", NormalColor);
@@ -102,9 +99,9 @@ public:
     void LoadFromIni(std::string iniFileName)
     {
         // Grab On flag from INI
-        On = GetPrivateProfileBool(GeneralSection, OnProfile, OnDefault, iniFileName);
+        On = GetPrivateProfileBool(ItemColorSection, OnProfile, OnDefault, iniFileName);
         // Write out On flag just in case it wasn't there
-        WritePrivateProfileBool(GeneralSection, OnProfile, On, iniFileName);
+        WritePrivateProfileBool(ItemColorSection, OnProfile, On, iniFileName);
 
         // Grab Normal Color from INI
         std::string NormalColorStr = GetPrivateProfileString(ItemColorSection, NormalProfile, "", iniFileName);
@@ -248,7 +245,18 @@ void SetBGColors(CInvSlotWnd* pInvSlotWnd, ItemDefinition* pItemDef, bool setDef
             pInvSlotWnd->BGTintRollover = CollectibleColor.GetRolloverColor();
         }
         // No Trade
-        else if (!pItemDef->IsDroppable && NoTradeColor.isOn())
+        // On FV server, color Normal No Trade only if FVNormalNoTrade setting is enabled
+        else if ((!pItemDef->IsDroppable && NoTradeColor.isOn()) &&
+                 ((FVServer && FVNormalNoTrade) || (!FVServer)))
+        {
+            SetBGTexture(pInvSlotWnd, false);
+            pInvSlotWnd->BGTintNormal = NoTradeColor.GetNormalColor();
+            pInvSlotWnd->BGTintRollover = NoTradeColor.GetRolloverColor();
+        }
+        // FV No Trade
+        // On FV server, color those that are FV No Trade using Normal No Trade settings
+        // Avoids coloring items that are normally No Trade but not on FV
+        else if (FVServer && (pItemDef->bIsFVNoDrop && NoTradeColor.isOn()))
         {
             SetBGTexture(pInvSlotWnd, false);
             pInvSlotWnd->BGTintNormal = NoTradeColor.GetNormalColor();
@@ -353,16 +361,20 @@ void SearchInventory(bool setDefault)
 
 
 /**
-* @fn LoadColorsFromINI
+* @fn LoadSettingsFromINI
 *
-* Load information from the INI for each of our colors
+* Load settings from the INI for each of our colors and any general settings
 *
 * TODO: Can probably be improved (add color items into a list and
 * just make this loop through and call function on each?)
 */
-void LoadColorsFromINI()
+void LoadSettingsFromINI()
 {
-    QuestColor.LoadFromIni(INIFileName);
+    // Grab FVNormalNoTrade flag from INI
+    FVNormalNoTrade = GetPrivateProfileBool(GeneralSection, "FVNormalNoTrade", false, INIFileName);
+    // Write out FVNormalNoTrade flag just in case it wasn't there
+    WritePrivateProfileBool(GeneralSection, "FVNormalNoTrade", FVNormalNoTrade, INIFileName);
+
     TradeSkillsColor.LoadFromIni(INIFileName);
     CollectibleColor.LoadFromIni(INIFileName);
     NoTradeColor.LoadFromIni(INIFileName);
@@ -379,7 +391,7 @@ void LoadColorsFromINI()
 PLUGIN_API void InitializePlugin()
 {
     // Load settings from INI
-    LoadColorsFromINI();
+    LoadSettingsFromINI();
 
     // Add XML for background texture
     AddXMLFile("MQUI_ItemColorAnimation.xml");
@@ -415,6 +427,40 @@ PLUGIN_API void ShutdownPlugin()
 
     // Remove benchmark
     RemoveMQ2Benchmark(bmMQItemColor);
+}
+
+
+/**
+ * @fn SetGameState
+ *
+ * This is called when the GameState changes.  It is also called once after the
+ * plugin is initialized.
+ *
+ * For a list of known GameState values, see the constants that begin with
+ * GAMESTATE_.  The most commonly used of these is GAMESTATE_INGAME.
+ *
+ * When zoning, this is called once after @ref OnBeginZone @ref OnRemoveSpawn
+ * and @ref OnRemoveGroundItem are all done and then called once again after
+ * @ref OnEndZone and @ref OnAddSpawn are done but prior to @ref OnAddGroundItem
+ * and @ref OnZoned
+ *
+ * @param GameState int - The value of GameState at the time of the call
+ */
+PLUGIN_API void SetGameState(int GameState)
+{
+    if (GameState == GAMESTATE_INGAME)
+    {
+        // Check if we are on FV, set flag to true if we are
+        // This flag will be used for any special logic we need if on FV
+        if (strcmp(EQADDR_SERVERNAME, "firiona") == 0)
+        {
+            FVServer = true;
+        }
+        else
+        {
+            FVServer = false;
+        }
+    }
 }
 
 
