@@ -245,7 +245,18 @@ void SetBGColors(CInvSlotWnd* pInvSlotWnd, ItemDefinition* pItemDef, bool setDef
             pInvSlotWnd->BGTintRollover = CollectibleColor.GetRolloverColor();
         }
         // No Trade
-        else if (!pItemDef->IsDroppable && NoTradeColor.isOn())
+        // On FV server, color Normal No Trade only if FVNormalNoTrade setting is enabled
+        else if ((!pItemDef->IsDroppable && NoTradeColor.isOn()) &&
+                 ((FVServer && FVNormalNoTrade) || (!FVServer)))
+        {
+            SetBGTexture(pInvSlotWnd, false);
+            pInvSlotWnd->BGTintNormal = NoTradeColor.GetNormalColor();
+            pInvSlotWnd->BGTintRollover = NoTradeColor.GetRolloverColor();
+        }
+        // FV No Trade
+        // On FV server, color those that are FV No Trade using Normal No Trade settings
+        // Avoids coloring items that are normally No Trade but not on FV
+        else if (FVServer && (pItemDef->bIsFVNoDrop && NoTradeColor.isOn()))
         {
             SetBGTexture(pInvSlotWnd, false);
             pInvSlotWnd->BGTintNormal = NoTradeColor.GetNormalColor();
