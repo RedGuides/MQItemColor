@@ -26,6 +26,9 @@ uint32_t bmMQItemColor = 0;
 unsigned int DefaultNormalColor = 0xFFC0C0C0;
 unsigned int DefaultRolloverColor = 0xFFFFFFFF;
 
+// General Settings Section
+std::string GeneralSection = "General";
+
 // Flags for checks needed if on FV Server
 bool FVServer = false;
 bool FVNormalNoTrade = false;
@@ -51,7 +54,6 @@ protected:
     unsigned int RolloverColorDefault;
 
     // INI Section/Profile Names
-    std::string GeneralSection;
     std::string ItemColorSection;
     std::string OnProfile;
     std::string NormalProfile;
@@ -64,8 +66,7 @@ public:
         NormalColor(NormalColor), NormalColorDefault(NormalColor),
         RolloverColor(RolloverColor), RolloverColorDefault(RolloverColor)
     {
-        GeneralSection = "General";
-        ItemColorSection = "ItemColors";
+        ItemColorSection = Name;
         OnProfile = Name + "On";
         NormalProfile = Name + "Normal";
         RolloverProfile = Name + "Rollover";
@@ -84,7 +85,7 @@ public:
     void WriteColorINI(std::string iniFileName)
     {
         // Grab On flag from INI, write out default if not there
-        WritePrivateProfileBool(GeneralSection, OnProfile, On, iniFileName);
+        WritePrivateProfileBool(ItemColorSection, OnProfile, On, iniFileName);
 
         // Write out Normal Color converted to hex string
         std::string NormalColorStr = fmt::format("0x{:X}", NormalColor);
@@ -98,9 +99,9 @@ public:
     void LoadFromIni(std::string iniFileName)
     {
         // Grab On flag from INI
-        On = GetPrivateProfileBool(GeneralSection, OnProfile, OnDefault, iniFileName);
+        On = GetPrivateProfileBool(ItemColorSection, OnProfile, OnDefault, iniFileName);
         // Write out On flag just in case it wasn't there
-        WritePrivateProfileBool(GeneralSection, OnProfile, On, iniFileName);
+        WritePrivateProfileBool(ItemColorSection, OnProfile, On, iniFileName);
 
         // Grab Normal Color from INI
         std::string NormalColorStr = GetPrivateProfileString(ItemColorSection, NormalProfile, "", iniFileName);
@@ -349,16 +350,20 @@ void SearchInventory(bool setDefault)
 
 
 /**
-* @fn LoadColorsFromINI
+* @fn LoadSettingsFromINI
 *
-* Load information from the INI for each of our colors
+* Load settings from the INI for each of our colors and any general settings
 *
 * TODO: Can probably be improved (add color items into a list and
 * just make this loop through and call function on each?)
 */
-void LoadColorsFromINI()
+void LoadSettingsFromINI()
 {
-    QuestColor.LoadFromIni(INIFileName);
+    // Grab FVNormalNoTrade flag from INI
+    FVNormalNoTrade = GetPrivateProfileBool(GeneralSection, "FVNormalNoTrade", false, INIFileName);
+    // Write out FVNormalNoTrade flag just in case it wasn't there
+    WritePrivateProfileBool(GeneralSection, "FVNormalNoTrade", FVNormalNoTrade, INIFileName);
+
     TradeSkillsColor.LoadFromIni(INIFileName);
     CollectibleColor.LoadFromIni(INIFileName);
     NoTradeColor.LoadFromIni(INIFileName);
@@ -375,7 +380,7 @@ void LoadColorsFromINI()
 PLUGIN_API void InitializePlugin()
 {
     // Load settings from INI
-    LoadColorsFromINI();
+    LoadSettingsFromINI();
 
     // Add XML for background texture
     AddXMLFile("MQUI_ItemColorAnimation.xml");
