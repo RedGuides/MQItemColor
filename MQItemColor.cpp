@@ -16,7 +16,7 @@
 #include <mq/Plugin.h>
 
 PreSetup("MQItemColor");
-PLUGIN_VERSION(1.1);
+PLUGIN_VERSION(1.2);
 
 // Globals
 // Benchmark
