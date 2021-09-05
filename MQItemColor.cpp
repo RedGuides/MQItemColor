@@ -39,7 +39,7 @@ std::string GeneralSection = "General";
 bool FVServer = false;
 bool FVNormalNoTrade = false;
 
-// Default Item Color, used for coloring items back to a default black color and default background texture
+// Default Item Color, used for coloring items back to a default color and default background texture
 ItemColor ItemColorDefault(ItemColorAttribute::Default, true, 0xFFC0C0C0, 0xFFFFFFFF);
 
 // ItemColor definitions, stores info for each item attribute we care to color
@@ -48,6 +48,7 @@ ItemColor AvailableItemColors[] =
     { ItemColor(ItemColorAttribute::Quest_Item, true,  0xFFF01DFF, 0xFFF9AFFF) },
     { ItemColor(ItemColorAttribute::TradeSkills_Item, true, 0xFFF0F000, 0xFFF09253) },
     { ItemColor(ItemColorAttribute::Collectible_Item, true, 0xFFFF8C20, 0xFFFFCA4D) },
+    { ItemColor(ItemColorAttribute::Heirloom_Item, false, 0xFFC0C0C0, 0xFFFFFFFF) },
     { ItemColor(ItemColorAttribute::NoTrade_Item, true, 0xFFFF2020, 0xFFFF8080) },
     { ItemColor(ItemColorAttribute::Attuneable_Item, true, 0xFF6BBAFF, 0xFFFFADF4) }
 };
@@ -293,13 +294,11 @@ void SetItemBG(CInvSlotWnd* pInvSlotWnd, ItemDefinition* pItemDef, bool setDefau
             SetBGTexture(pInvSlotWnd, false);
         }
         // Heirloom
-        /*
-        else if (pItemDef->Heirloom)
+        else if (pItemDef->Heirloom && GetItemColor(ItemColorAttribute::Heirloom_Item).isOn())
         {
             SetBGColors(pInvSlotWnd, ItemColorAttribute::Heirloom_Item);
             SetBGTexture(pInvSlotWnd, false);
         }
-        */
         // No Trade
         // On FV server, color Normal No Trade only if FVNormalNoTrade setting is enabled
         else if ((!pItemDef->IsDroppable && GetItemColor(ItemColorAttribute::NoTrade_Item).isOn()) &&

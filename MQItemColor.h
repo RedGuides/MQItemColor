@@ -10,6 +10,7 @@ enum class ItemColorAttribute : size_t
     Quest_Item,
     TradeSkills_Item,
     Collectible_Item,
+    Heirloom_Item,
     NoTrade_Item,
     Attuneable_Item,
     Last
@@ -66,6 +67,10 @@ public:
 
         case ItemColorAttribute::Collectible_Item:
             Name = "Collectible";
+            break;
+
+        case ItemColorAttribute::Heirloom_Item:
+            Name = "Heirloom";
             break;
 
         case ItemColorAttribute::NoTrade_Item:
