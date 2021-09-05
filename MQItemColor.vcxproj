@@ -52,6 +52,7 @@
     <ClCompile Include="MQItemColor.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="MQItemColor.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
