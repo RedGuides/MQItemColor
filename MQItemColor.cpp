@@ -93,6 +93,32 @@ static void HelpLabel(const char* text)
 
 
 /**
+* @fn WriteGeneralSettingsToINI
+*
+* Writes any general settings to the INI
+*/
+static void WriteGeneralSettingsToINI()
+{
+    // Write out FVNormalNoTrade flag
+    WritePrivateProfileBool(GeneralSection, "FVNormalNoTrade", FVNormalNoTrade, INIFileName);
+}
+
+
+/**
+* @fn WriteColorSettingsToINI
+*
+* Writes any ItemColor settings to the INI
+*/
+static void WriteColorSettingsToINI()
+{
+    for (ItemColor& itemColor : AvailableItemColors)
+    {
+        itemColor.WriteColorINI(INIFileName);
+    }
+}
+
+
+/**
 * @fn ItemColorSettings_General
 *
 * Sets up the general settings area. Contains any general options for the plugin
@@ -106,7 +132,10 @@ static void ItemColorSettings_General()
     ImGui::PopFont();
 
     // FV Normal No Trade Checkbox Section
-    ImGui::Checkbox("Color Items Normally Marked \"No Trade\"", &FVNormalNoTrade);
+    if (ImGui::Checkbox("Color Items Normally Marked \"No Trade\"", &FVNormalNoTrade))
+    {
+        WriteGeneralSettingsToINI();
+    }
     ImGui::SameLine();
     ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "- Firiona Vie Server Only");
     ImGui::NewLine();
@@ -129,7 +158,10 @@ static void ItemColorSettings_Colors()
     for (ItemColor& itemColor : AvailableItemColors)
     {
         // Enable Checkbox Section
-        ImGui::Checkbox((itemColor.Name).c_str(), &itemColor.On);
+        if (ImGui::Checkbox((itemColor.Name).c_str(), &itemColor.On))
+        {
+            itemColor.WriteColorINI(INIFileName);
+        }
         std::string itemColorHelp = "Color items marked \"" + itemColor.Name + "\"";
         HelpLabel(itemColorHelp.c_str());
 
@@ -144,6 +176,7 @@ static void ItemColorSettings_Colors()
             itemColor.NormalColor.Green = static_cast<uint8_t>(normalColor.Value.y * 255);
             itemColor.NormalColor.Red = static_cast<uint8_t>(normalColor.Value.x * 255);
             itemColor.NormalColor.Alpha = 255U;
+            itemColor.WriteColorINI(INIFileName);
         }
 
         if (itemColor.NormalColor != itemColor.NormalColorDefault)
@@ -152,6 +185,7 @@ static void ItemColorSettings_Colors()
             if (ImGui::Button("Reset"))
             {
                 itemColor.SetNormalColorToDefault();
+                itemColor.WriteColorINI(INIFileName);
             }
         }
 
@@ -169,6 +203,7 @@ static void ItemColorSettings_Colors()
             itemColor.RolloverColor.Green = static_cast<uint8_t>(rolloverColor.Value.y * 255);
             itemColor.RolloverColor.Red = static_cast<uint8_t>(rolloverColor.Value.x * 255);
             itemColor.RolloverColor.Alpha = 255U;
+            itemColor.WriteColorINI(INIFileName);
         }
 
         if (itemColor.RolloverColor != itemColor.RolloverColorDefault)
@@ -177,6 +212,7 @@ static void ItemColorSettings_Colors()
             if (ImGui::Button("Reset"))
             {
                 itemColor.SetRolloverColorToDefault();
+                itemColor.WriteColorINI(INIFileName);
             }
         }
 
@@ -430,6 +466,21 @@ void LoadSettingsFromINI()
 
 
 /**
+* @fn SaveSettingsToINI
+*
+* Save settings to the INI for each of our colors and any general settings
+*/
+void SaveSettingsToINI()
+{
+    // Write General settings to INI
+    WriteGeneralSettingsToINI();
+
+    // Write ItemColor settings to INI
+    WriteColorSettingsToINI();
+}
+
+
+/**
 * @fn InitializePlugin
 *
 * This is called once on plugin initialization and can be considered the startup
@@ -462,10 +513,8 @@ PLUGIN_API void ShutdownPlugin()
     // Set inventory back to default backgrounds
     SearchInventory(true);
 
-    for (ItemColor& itemColor : AvailableItemColors)
-    {
-        itemColor.WriteColorINI(INIFileName);
-    }
+    // Save settings to INI
+    SaveSettingsToINI();
 
     // Remove XML for background texture
     RemoveXMLFile("MQUI_ItemColorAnimation.xml");
