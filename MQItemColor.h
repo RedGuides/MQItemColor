@@ -4,15 +4,15 @@
 
 // Enumerations of item attributes for each ItemColor
 // Matches index in AvailableItemColors[] except Default which is standalone
-enum class ItemColorAttribute : size_t
+enum class ItemColorAttribute
 {
     Default = -1,
-    Quest_Item,
-    TradeSkills_Item,
-    Collectible_Item,
-    Heirloom_Item,
-    NoTrade_Item,
-    Attuneable_Item,
+    Quest_Item = 0,
+    TradeSkills_Item = 1,
+    Collectible_Item = 2,
+    Heirloom_Item = 3,
+    NoTrade_Item = 4,
+    Attuneable_Item = 5,
     Last
 };
 
