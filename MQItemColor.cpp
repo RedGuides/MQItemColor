@@ -296,11 +296,22 @@ void SetBGColors(CInvSlotWnd* pInvSlotWnd, ItemColorAttribute itemColorAttr)
 * Will also change the tint of the background normal and rollover colors
 *
 * @param pInvSlotWnd CInvSlotWnd* - Pointer to the CInvSlotWnd we want to change the background color of
-* @param pItemDef ItemDefinition* - Pointer to the ItemDefinition of the item we are dealing with
+* @param pItem ItemPtr - Smart Pointer to the Item we are dealing with
 * @param setDefault bool - True to set the original colors, false (default) to set based on item attributes
 */
-void SetItemBG(CInvSlotWnd* pInvSlotWnd, ItemDefinition* pItemDef, bool setDefault)
+void SetItemBG(CInvSlotWnd* pInvSlotWnd, ItemPtr pItem, bool setDefault)
 {
+	if (!pItem)
+		return;
+
+	// Grab ItemDefinition for item at slot
+	ItemDefinition* pItemDef = pItem->GetItemDefinition();
+	if (!pItemDef)
+	{
+		// Skip, no valid ItemDefinition
+		return;
+	}
+
     // Valid SlotWnd and ItemDef means we have an item in the slot to color
     if ((pInvSlotWnd != nullptr) && (pItemDef != nullptr))
     {
@@ -337,7 +348,7 @@ void SetItemBG(CInvSlotWnd* pInvSlotWnd, ItemDefinition* pItemDef, bool setDefau
         }
         // No Trade
         // On FV server, color Normal No Trade only if FVNormalNoTrade setting is enabled
-        else if ((!pItemDef->IsDroppable && GetItemColor(ItemColorAttribute::NoTrade_Item).isOn()) &&
+        else if (((!pItemDef->IsDroppable || pItem->NoDropFlag) && GetItemColor(ItemColorAttribute::NoTrade_Item).isOn()) &&
                  ((FVServer && FVNormalNoTrade) || (!FVServer)))
         {
             SetBGColors(pInvSlotWnd, ItemColorAttribute::NoTrade_Item);
@@ -396,7 +407,6 @@ void SearchInventory(bool setDefault)
 
         // Grab global index and pointer to item if one exists at slot
         ItemGlobalIndex globalIndex = pInvSlot->pInvSlotWnd ? pInvSlot->pInvSlotWnd->ItemLocation : ItemGlobalIndex();
-        ItemPtr pItem = pLocalPC->GetItemByGlobalIndex(globalIndex);
         ItemContainerInstance location = globalIndex.GetLocation();
 
         // Check if Index is Valid and the locations we want (Inventory, Bank, or Shared Bank)
@@ -420,20 +430,13 @@ void SearchInventory(bool setDefault)
 
             // The remaining CInvSlotWnd at this point should be those in
             // Inventory, Bank, or Shared Bank that either contain an item or not.
+			ItemPtr pItem = pLocalPC->GetItemByGlobalIndex(globalIndex);
 
             // Contains Item
             if (pItem)
             {
-                // Grab ItemDefinition for item at slot
-                ItemDefinition* pItemDef = pItem->GetItemDefinition();
-                if (!pItemDef)
-                {
-                    // Skip, no valid ItemDefinition
-                    continue;
-                }
-
                 // Set background color and texture for InvSlotWnd based on ItemDefinition
-                SetItemBG(pInvSlotWnd, pItemDef, setDefault);
+                SetItemBG(pInvSlotWnd, pItem, setDefault);
             }
             // Does NOT Contain Item
             else
