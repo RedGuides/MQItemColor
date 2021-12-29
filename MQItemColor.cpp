@@ -395,6 +395,11 @@ void SetItemBG(CInvSlotWnd* pInvSlotWnd, ItemPtr pItem, bool setDefault)
 */
 void SearchInventory(bool setDefault)
 {
+    if (!pInvSlotMgr)
+    {
+        return;
+    }
+
     // Loop through each inventory slot
     for (int index = 0; index < pInvSlotMgr->TotalSlots; index++)
     {
