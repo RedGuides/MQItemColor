@@ -306,8 +306,7 @@ void SetItemBG(CInvSlotWnd* pInvSlotWnd, ItemPtr pItem, bool setDefault)
     // If pItem is valid, and we have a valid pItemDef, we set the background appropriately
     // If pItem is valid, but pItemDef is not, we return the slot to default
 
-	// Grab ItemDefinition for item at slot
-	// If we have a valid item pointer
+	// If we have a valid item pointer, try to grab its ItemDefinition
 	ItemDefinition* pItemDef = nullptr;
 	if (pItem != nullptr)
 	{
