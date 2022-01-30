@@ -301,15 +301,17 @@ void SetBGColors(CInvSlotWnd* pInvSlotWnd, ItemColorAttribute itemColorAttr)
 */
 void SetItemBG(CInvSlotWnd* pInvSlotWnd, ItemPtr pItem, bool setDefault)
 {
-	if (!pItem)
-		return;
+    // pInvSlotWnd must be valid for background to be changed
+    // If pItem (and thus pItemDef) is invalid, we return the slot to default
+    // If pItem is valid, and we have a valid pItemDef, we set the background appropriately
+    // If pItem is valid, but pItemDef is not, we return the slot to default
 
 	// Grab ItemDefinition for item at slot
-	ItemDefinition* pItemDef = pItem->GetItemDefinition();
-	if (!pItemDef)
+	// If we have a valid item pointer
+	ItemDefinition* pItemDef = nullptr;
+	if (pItem != nullptr)
 	{
-		// Skip, no valid ItemDefinition
-		return;
+        pItemDef = pItem->GetItemDefinition();
 	}
 
     // Valid SlotWnd and ItemDef means we have an item in the slot to color
