@@ -16,7 +16,7 @@
 * Add Name definition to switch in ItemColor constructor in MQItemColor.h
 * Define a new ItemColor in the AvailableItemColors array
 * Add new If statement for when your new ItemColor should be used to SetItemBG(), keeping in mind the priority order of the enums
-* 
+*
 */
 
 #include <mq/Plugin.h>
@@ -74,7 +74,7 @@ static ItemColor& GetItemColor(ItemColorAttribute itemColorAttr)
 * @fn HelpLabel
 *
 * Creates a (?) which can be hovered over to display some help text
-* 
+*
 * @param text const char* - Text to dispaly in the help popup
 */
 static void HelpLabel(const char* text)
@@ -301,16 +301,17 @@ void SetBGColors(CInvSlotWnd* pInvSlotWnd, ItemColorAttribute itemColorAttr)
 */
 void SetItemBG(CInvSlotWnd* pInvSlotWnd, ItemPtr pItem, bool setDefault)
 {
-	if (!pItem)
-		return;
+    // pInvSlotWnd must be valid for background to be changed
+    // If pItem (and thus pItemDef) is invalid, we return the slot to default
+    // If pItem is valid, and we have a valid pItemDef, we set the background appropriately
+    // If pItem is valid, but pItemDef is not, we return the slot to default
 
-	// Grab ItemDefinition for item at slot
-	ItemDefinition* pItemDef = pItem->GetItemDefinition();
-	if (!pItemDef)
-	{
-		// Skip, no valid ItemDefinition
-		return;
-	}
+    // If we have a valid item pointer, try to grab its ItemDefinition
+    ItemDefinition* pItemDef = nullptr;
+    if (pItem != nullptr)
+    {
+        pItemDef = pItem->GetItemDefinition();
+    }
 
     // Valid SlotWnd and ItemDef means we have an item in the slot to color
     if ((pInvSlotWnd != nullptr) && (pItemDef != nullptr))
@@ -349,7 +350,7 @@ void SetItemBG(CInvSlotWnd* pInvSlotWnd, ItemPtr pItem, bool setDefault)
         // No Trade
         // On FV server, color Normal No Trade only if FVNormalNoTrade setting is enabled
         else if (((!pItemDef->IsDroppable || pItem->NoDropFlag) && GetItemColor(ItemColorAttribute::NoTrade_Item).isOn()) &&
-                 ((FVServer && FVNormalNoTrade) || (!FVServer)))
+            ((FVServer && FVNormalNoTrade) || (!FVServer)))
         {
             SetBGColors(pInvSlotWnd, ItemColorAttribute::NoTrade_Item);
             SetBGTexture(pInvSlotWnd, false);
@@ -435,7 +436,7 @@ void SearchInventory(bool setDefault)
 
             // The remaining CInvSlotWnd at this point should be those in
             // Inventory, Bank, or Shared Bank that either contain an item or not.
-			ItemPtr pItem = pLocalPC->GetItemByGlobalIndex(globalIndex);
+            ItemPtr pItem = pLocalPC->GetItemByGlobalIndex(globalIndex);
 
             // Contains Item
             if (pItem)
