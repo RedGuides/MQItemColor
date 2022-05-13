@@ -558,7 +558,7 @@ PLUGIN_API void SetGameState(int GameState)
     {
         // Check if we are on FV, set flag to true if we are
         // This flag will be used for any special logic we need if on FV
-        if (strcmp(EQADDR_SERVERNAME, "firiona") == 0)
+        if (strcmp(GetServerShortName(), "firiona") == 0)
         {
             FVServer = true;
         }
