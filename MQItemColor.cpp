@@ -26,7 +26,7 @@
 #include "imgui/ImGuiTextEditor.h"
 
 PreSetup("MQItemColor");
-PLUGIN_VERSION(1.3);
+PLUGIN_VERSION(1.4);
 
 // Globals
 // Benchmark
@@ -38,6 +38,9 @@ std::string GeneralSection = "General";
 // Flags for checks needed if on FV Server
 bool FVServer = false;
 bool FVNormalNoTrade = false;
+
+// Flag for using custom "glow" texture
+bool UseGlowTexture = true;
 
 // Default Item Color, used for coloring items back to a default color and default background texture
 ItemColor ItemColorDefault(ItemColorAttribute::Default, true, 0xFFC0C0C0, 0xFFFFFFFF);
@@ -101,6 +104,8 @@ static void WriteGeneralSettingsToINI()
 {
     // Write out FVNormalNoTrade flag
     WritePrivateProfileBool(GeneralSection, "FVNormalNoTrade", FVNormalNoTrade, INIFileName);
+    // Write out UseGlowTexture flag
+    WritePrivateProfileBool(GeneralSection, "UseGlowTexture", UseGlowTexture, INIFileName);
 }
 
 
@@ -138,6 +143,14 @@ static void ItemColorSettings_General()
     }
     ImGui::SameLine();
     ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "- Firiona Vie Server Only");
+
+    // Use Glow Texture Checkbox Section
+    if (ImGui::Checkbox("Use \"Glow\" Texture", &UseGlowTexture))
+    {
+        WriteGeneralSettingsToINI();
+    }
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.5f), "- Can cause crash if used while creating item hot button (New UI Engine Issue)");
     ImGui::NewLine();
 }
 
@@ -246,14 +259,14 @@ void ItemColorSettingsPanel()
 */
 void SetBGTexture(CInvSlotWnd* pInvSlotWnd, bool setDefault)
 {
-	// Currently an issue with creating a hot button for an item with custom texture applied, avoiding for now
-	/*
     if ((pInvSlotWnd != nullptr) && (pInvSlotWnd->pBackground != nullptr))
     {
         CTextureAnimation* newTex = nullptr;
 
         // Return texture to normal
-        if (setDefault)
+        // Currently using the custom glow texture can cause a crash when creating a hot button from an item
+        // Use default if the user has selected not to use the custom glow texture
+        if (setDefault || !UseGlowTexture)
         {
             newTex = pSidlMgr->FindAnimation("A_RecessedBox");
         }
@@ -268,7 +281,6 @@ void SetBGTexture(CInvSlotWnd* pInvSlotWnd, bool setDefault)
             pInvSlotWnd->pBackground = newTex;
         }
     }
-	*/
 }
 
 
@@ -467,8 +479,13 @@ void LoadSettingsFromINI()
 {
     // Grab FVNormalNoTrade flag from INI
     FVNormalNoTrade = GetPrivateProfileBool(GeneralSection, "FVNormalNoTrade", false, INIFileName);
+    // Grab UseGlowTexture flag from INI
+    UseGlowTexture = GetPrivateProfileBool(GeneralSection, "UseGlowTexture", false, INIFileName);
+
     // Write out FVNormalNoTrade flag just in case it wasn't there
     WritePrivateProfileBool(GeneralSection, "FVNormalNoTrade", FVNormalNoTrade, INIFileName);
+    // Write out UseGlowTexture flag just in case it wasn't there
+    WritePrivateProfileBool(GeneralSection, "UseGlowTexture", UseGlowTexture, INIFileName);
 
     for (ItemColor& itemColor : AvailableItemColors)
     {
