@@ -246,6 +246,8 @@ void ItemColorSettingsPanel()
 */
 void SetBGTexture(CInvSlotWnd* pInvSlotWnd, bool setDefault)
 {
+	// Currently an issue with creating a hot button for an item with custom texture applied, avoiding for now
+	/*
     if ((pInvSlotWnd != nullptr) && (pInvSlotWnd->pBackground != nullptr))
     {
         CTextureAnimation* newTex = nullptr;
@@ -266,6 +268,7 @@ void SetBGTexture(CInvSlotWnd* pInvSlotWnd, bool setDefault)
             pInvSlotWnd->pBackground = newTex;
         }
     }
+	*/
 }
 
 
