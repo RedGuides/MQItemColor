@@ -13,6 +13,7 @@ enum class ItemColorAttribute
     Heirloom_Item = 3,
     NoTrade_Item = 4,
     Attuneable_Item = 5,
+    HasAugSlot8_Item = 6,
     Last
 };
 
@@ -80,6 +81,10 @@ public:
         case ItemColorAttribute::Attuneable_Item:
             Name = "Attuneable";
             break;
+
+		case ItemColorAttribute::HasAugSlot8_Item:
+			Name = "HasAugSlot8";
+			break;
 
         default:
             Name = "Unnamed";

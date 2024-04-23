@@ -53,7 +53,8 @@ ItemColor AvailableItemColors[] =
     { ItemColor(ItemColorAttribute::Collectible_Item, true, 0xFFFF8C20, 0xFFFFCA4D) },
     { ItemColor(ItemColorAttribute::Heirloom_Item, false, 0xFFC0C0C0, 0xFFFFFFFF) },
     { ItemColor(ItemColorAttribute::NoTrade_Item, true, 0xFFFF2020, 0xFFFF8080) },
-    { ItemColor(ItemColorAttribute::Attuneable_Item, true, 0xFF6BBAFF, 0xFFFFADF4) }
+    { ItemColor(ItemColorAttribute::Attuneable_Item, true, 0xFF6BBAFF, 0xFFFFADF4) },
+    { ItemColor(ItemColorAttribute::HasAugSlot8_Item, true, 0xFF00FF00, 0xFFFFADF4) },
 };
 
 
@@ -302,6 +303,19 @@ void SetBGColors(CInvSlotWnd* pInvSlotWnd, ItemColorAttribute itemColorAttr)
     }
 }
 
+bool HasType8AugSlot(ItemPtr pItem) {
+	if (ItemDefinition* pItemDef = pItem->GetItemDefinition()) {
+		if (pItemDef->AugData.Sockets) {
+			for (auto& socket : pItemDef->AugData.Sockets) {
+				if (socket.Type == 8) {
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
 
 /**
 * @fn SetItemBG
@@ -338,6 +352,12 @@ void SetItemBG(CInvSlotWnd* pInvSlotWnd, ItemPtr pItem, bool setDefault)
             SetBGColors(pInvSlotWnd, ItemColorAttribute::Default);
             SetBGTexture(pInvSlotWnd, true);
         }
+		// has "8" aug slot (raid item)
+		else if (HasType8AugSlot(pItem) && GetItemColor(ItemColorAttribute::HasAugSlot8_Item).isOn())
+		{
+			SetBGColors(pInvSlotWnd, ItemColorAttribute::HasAugSlot8_Item);
+			SetBGTexture(pInvSlotWnd, false);
+		}
         // Quest
         else if (pItemDef->QuestItem && GetItemColor(ItemColorAttribute::Quest_Item).isOn())
         {
