@@ -55,6 +55,7 @@ ItemColor AvailableItemColors[] =
     { ItemColor(ItemColorAttribute::NoTrade_Item, true, 0xFFFF2020, 0xFFFF8080) },
     { ItemColor(ItemColorAttribute::Attuneable_Item, true, 0xFF6BBAFF, 0xFFFFADF4) },
     { ItemColor(ItemColorAttribute::HasAugSlot8_Item, true, 0xFF00FF00, 0xFFFFADF4) },
+    { ItemColor(ItemColorAttribute::PowerSource_Item, true, 0xFF0F13DA, 0xFFFFADF4) },
 };
 
 
@@ -356,6 +357,11 @@ void SetItemBG(CInvSlotWnd* pInvSlotWnd, ItemPtr pItem, bool setDefault)
 		else if (HasType8AugSlot(pItem) && GetItemColor(ItemColorAttribute::HasAugSlot8_Item).isOn())
 		{
 			SetBGColors(pInvSlotWnd, ItemColorAttribute::HasAugSlot8_Item);
+			SetBGTexture(pInvSlotWnd, false);
+		}
+		// if the itemdef has maxpower, it is a powersource
+		else if (pItemDef->MaxPower) {
+			SetBGColors(pInvSlotWnd, ItemColorAttribute::PowerSource_Item);
 			SetBGTexture(pInvSlotWnd, false);
 		}
         // Quest
