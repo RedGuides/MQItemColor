@@ -14,9 +14,9 @@ enum class ItemColorAttribute
     NoTrade_Item = 4,
     Attuneable_Item = 5,
     HasAugSlot8_Item = 6,
-	PowerSource_Item = 7,
+    PowerSource_Item = 7,
     Placeable_Item = 8,
-	Ornamentation_Item = 9,
+    Ornamentation_Item = 9,
     Last
 };
 
