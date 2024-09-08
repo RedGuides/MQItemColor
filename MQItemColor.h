@@ -87,6 +87,18 @@ public:
 			Name = "HasAugSlot8";
 			break;
 
+		case ItemColorAttribute::PowerSource_Item:
+			Name = "PowerSource";
+			break;
+
+		case ItemColorAttribute::Placeable_Item:
+			Name = "Placeable";
+			break;
+
+		case ItemColorAttribute::Ornamentation_Item:
+			Name = "Ornamentation";
+			break;
+
         default:
             Name = "Unnamed";
             break;
