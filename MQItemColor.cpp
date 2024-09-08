@@ -56,8 +56,8 @@ ItemColor AvailableItemColors[] =
     { ItemColor(ItemColorAttribute::Attuneable_Item, true, 0xFF6BBAFF, 0xFFFFADF4) },
     { ItemColor(ItemColorAttribute::HasAugSlot8_Item, true, 0xFF00FF00, 0xFFFFADF4) },
     { ItemColor(ItemColorAttribute::PowerSource_Item, true, 0xFF0F13DA, 0xFFFFADF4) },
-	{ ItemColor(ItemColorAttribute::Placeable_Item, true, 0xFFC0C0C0, 0xFFFFFFFF) },
-	{ ItemColor(ItemColorAttribute::Ornamentation_Item, true, 0xFFC0C0C0, 0xFFFFFFFF) },
+    { ItemColor(ItemColorAttribute::Placeable_Item, true, 0xFFC0C0C0, 0xFFFFFFFF) },
+    { ItemColor(ItemColorAttribute::Ornamentation_Item, true, 0xFFC0C0C0, 0xFFFFFFFF) },
 };
 
 
@@ -320,7 +320,7 @@ bool HasType8AugSlot(ItemPtr pItem) {
 }
 
 bool IsOrnamentation(ItemPtr pItem) {
-	return (pItem->GetItemDefinition()->AugType & 0x180000) != 0;
+    return (pItem->GetItemDefinition()->AugType & 0x180000) != 0;
 }
 
 /**
