@@ -56,6 +56,8 @@ ItemColor AvailableItemColors[] =
     { ItemColor(ItemColorAttribute::Attuneable_Item, true, 0xFF6BBAFF, 0xFFFFADF4) },
     { ItemColor(ItemColorAttribute::HasAugSlot8_Item, true, 0xFF00FF00, 0xFFFFADF4) },
     { ItemColor(ItemColorAttribute::PowerSource_Item, true, 0xFF0F13DA, 0xFFFFADF4) },
+    { ItemColor(ItemColorAttribute::Placeable_Item, true, 0xFFC0C0C0, 0xFFFFFFFF) },
+    { ItemColor(ItemColorAttribute::Ornamentation_Item, true, 0xFFC0C0C0, 0xFFFFFFFF) },
 };
 
 
@@ -317,6 +319,9 @@ bool HasType8AugSlot(ItemPtr pItem) {
 	return false;
 }
 
+bool IsOrnamentation(ItemPtr pItem) {
+    return (pItem->GetItemDefinition()->AugType & 0x180000) != 0;
+}
 
 /**
 * @fn SetItemBG
@@ -410,6 +415,18 @@ void SetItemBG(CInvSlotWnd* pInvSlotWnd, ItemPtr pItem, bool setDefault)
             SetBGColors(pInvSlotWnd, ItemColorAttribute::Attuneable_Item);
             SetBGTexture(pInvSlotWnd, false);
         }
+		// Placeable
+		else if (pItemDef->Placeable && GetItemColor(ItemColorAttribute::Placeable_Item).isOn())
+		{
+			SetBGColors(pInvSlotWnd, ItemColorAttribute::Placeable_Item);
+			SetBGTexture(pInvSlotWnd, false);
+		}
+		// Has Type 20 or 21 aug slot (Ornamentations)
+		else if (IsOrnamentation(pItem) && GetItemColor(ItemColorAttribute::Ornamentation_Item).isOn())
+		{
+			SetBGColors(pInvSlotWnd, ItemColorAttribute::Ornamentation_Item);
+			SetBGTexture(pInvSlotWnd, false);
+		}
         // Undefined (Return to "Normal")
         else
         {
