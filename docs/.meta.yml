@@ -1,0 +1,5 @@
+docs_repository: "https://github.com/RedGuides/MQItemColor"
+docs_edit_uri: "edit/main/"
+docs_path_transform:
+  from: "projects/mqitemcolor/"
+  to: "docs/"
